@@ -14,7 +14,7 @@ from configuration import Configuration
 
 import signal_utils as generator
 from freq_utils import getScale, calcScalesAndFreqs
-from sswt import sswt
+from sswt import sswt, reconstruct, reconstructCWT
 
 
 def calcScales(ts:float, wcf:float, nvPerBand:list, flo:float, fhi:float,
@@ -217,7 +217,8 @@ def adaptive_sswt(iters:int=2, *args, **kwargs) -> Tuple[np.ndarray, np.ndarray,
 if __name__=='__main__':
     import scipy.signal as sp
     plt.close('all')
-    logging.basicConfig(format='%(levelname)s - %(asctime)s - %(name)s - %(message)s')
+    logging.basicConfig(filename='adaptivesswt.log', filemode='w',
+                        format='%(levelname)s - %(asctime)s - %(name)s:\n %(message)s')
     logger = logging.getLogger(__name__)
     logger.setLevel(logging.DEBUG)
 #%% Parámetros
@@ -228,41 +229,52 @@ if __name__=='__main__':
 
     t, ts = np.linspace(0, stopTime, signalLen, endpoint=False, retstep=True)
 
+    compFig = plt.figure('Comparación de métodos')
+    gs = compFig.add_gridspec(2,3)
+    compAxes = gs.subplots(sharex='col', sharey='row')
 
-
-    mainFig = plt.figure('Comparación de métodos')
+    mainFig = plt.figure('Comparación de resultados')
     gs = mainFig.add_gridspec(2, 3)
     mainAxes  = gs.subplots(sharex='col', sharey='row')
     mainFig.set_tight_layout(True)
     
 #%% Señal de prueba
 
-
-
-    #sig = pulsePosModSig(t,pw=t[1]*3, prf=1)
-    #sig = hbSig(t)
-    
-    f = np.pi
-    # _, sig = testChirp(t, 1, 40)
+    # sig = generator.pulsePosModSig(t,pw=t[1]*3, prf=1)
+    # sig = generator.hbSig(t)
+    # f, sig = generator.testChirp(t, 1, 40)
     # _, sig = testUpDownChirp(t,1,10)
-    # sig = quadraticChirp(t, 1, 10)
-
-    # sig=testSig(t)
-    
-    # sig=testSine(t,f)
-    
-    sig = generator.delta(t, 2)
+    f, sig = generator.quadraticChirp(t, 1, 20)
+    # sig = generator.testSig(t)
+    # sig = generator.testSine(t,f)
+    # sig = generator.delta(t, 2)
+    # fqs, sig = generator.crossChrips(t, 1, 20, 4)
 
     mainAxes[0,0].plot(t[:len(sig)], sig)
     mainAxes[0,0].set_title('Señal')
 
+    # for i in range(fqs.shape[0]):
+    #     compAxes[0,0].plot(t[:len(sig)], fqs[i])
+    #     compAxes[1,0].plot(t[:len(sig)], fqs[i])
+
+    compAxes[0,0].plot(t[:len(sig)], f)
+    compAxes[1,0].plot(t[:len(sig)], f)
+
+    # compAxes[0,0].plot(t[:len(sig)], f)
+    compAxes[0,0].set_title('Frecuencia Instanánea')
+
+    # compAxes[1,0].plot(t[:len(sig)], f)
+    compAxes[1,0].set_title('Frecuencia Instanánea')
+
+    
+
 #%% Transformada
-    wcf = 1#0.5
+    wcf = 0.5
     wbw = 8
 
-    maxFreq = fs/3
+    maxFreq = 21
     minFreq = 0.1
-    numFreqs = 200
+    numFreqs = 50
 
     config = Configuration(
         minFreq=minFreq,
@@ -271,28 +283,35 @@ if __name__=='__main__':
         ts=ts,
         wcf=wcf,
         wbw=wbw,
-        waveletBounds=(-8,8),
+        waveletBounds=(-12,12),
         umbral=sig.max()/(100),
         numProc=1,
         log=False)
 
+    compAxes[0,2].specgram(sig, NFFT=int(numFreqs), Fs=fs, scale='linear', noverlap=numFreqs-1)
+    compAxes[0,2].set_title('Espectrograma')
+
     # sig=sp.hilbert(sig)
-    sst, cwt, freqs, scales = adaptive_sswt(0, sig, **config.asdict())
-    #minFreq, maxFreq, numFreqs, ts=ts, wcf=wcf, wbw=wbw,
-    #               umbral=sig.max()/100, numProc=2)
+    sst, cwt, freqs, scales = sswt(sig, **config.asdict())
  
     fig = plt.figure("SSWT")
     ax = fig.add_subplot(111, projection='3d')
     X, Y = np.meshgrid(t, freqs)
-    ax.plot_surface(X, Y, abs(sst))
+    ax.plot_surface(X, Y, abs(sst), cmap='viridis')
 
     mainAxes[1,0].pcolormesh(t, freqs, np.abs(cwt),
                   cmap='viridis', shading='gouraud')
-    #mainAxes[1,0].set_yscale('log')
     mainAxes[1,0].set_title('Wavelet Transform')
     mainAxes[1,1].pcolormesh(t, freqs, np.abs(sst),
                   cmap='viridis', shading='gouraud')
     mainAxes[1,1].set_title('Synchrosqueezing Transform')
+
+    compAxes[0,1].pcolormesh(t, freqs, np.abs(cwt),
+                  cmap='viridis', shading='gouraud')
+    compAxes[0,1].set_title('Wavelet Transform')
+    compAxes[1,1].pcolormesh(t, freqs, np.abs(sst),
+                  cmap='viridis', shading='gouraud')
+    compAxes[1,1].set_title('Synchrosqueezing Transform')
 
 
     wav = pywt.ContinuousWavelet(f'cmor{config.wbw}-{config.wcf}')
@@ -302,28 +321,23 @@ if __name__=='__main__':
     wav.lower_bound, wav.upper_bound = config.waveletBounds
     psi, x = pywt.integrate_wavelet(wav)
     print(f'\n\nLongitud de PSI: {len(psi)}\n\n')
-    C = np.pi * np.conjugate(psi[np.argmin(np.abs(x))])
 
-    psi_w, x_w = wav.wavefun(wav.upper_bound-wav.lower_bound)
-    C_w = abs(psi_w[np.argmin(np.abs(x_w))]) * (wav.upper_bound / 4)
+    signalR_cwt = reconstructCWT(cwt, wav, scales, freqs)
+    signalR_sst = reconstruct(sst, wav, freqs)
 
     deltaFreqs = np.diff(freqs, append=(2*freqs[-1] - freqs[-2]))
-    indexes  = np.where(np.logical_and(freqs >= minFreq, freqs<=maxFreq))[0]
-    signalR = (1/C_w) *  np.sum(cwt / scales[:, np.newaxis] / 2, axis=0) # (1/C) * (sst[indexes,:]).sum(axis=0) #
-    signalRfull = (1/C) * sst.sum(axis=0)
-    
+  
     mainAxes[0, 1].plot(t, sig, label='Señal', alpha=0.8)
-    mainAxes[0, 1].plot(t, signalRfull.real, label='Full')
+    mainAxes[0, 1].plot(t, signalR_sst, label='Full')
     mainAxes[0, 1].legend()
     mainAxes[0, 1].set_title('Señal reconstruída')
 
-    iterations = 0
-    iters = iterations + 1
+    iters = 4
 
     mse = np.zeros(iters)
     fig, specAx = plt.subplots(1)
     fig.suptitle('Espectros synchrosqueezed')
-    spectrum = abs(sst.sum(axis=1))
+    spectrum = abs(sst).sum(axis=1)
     specAx.plot(freqs, spectrum, label='0 Iteraciones')
 
     # colors = ['b','g','r','o','c','m']
@@ -332,9 +346,9 @@ if __name__=='__main__':
         # print('****************************************************************************************************')
         # print(f'******************************************* Iteración: {it} *******************************************')
         # if it == iters-1:
-    config.plotFilt = True
-    sst, _, freqs, scales = adaptive_sswt(iters, sig, **config.asdict())
-    spectrum = abs(sst.sum(axis=1))
+    config.plotFilt = False
+    asst, _, afreqs, scales = adaptive_sswt(iters, sig, **config.asdict())
+    spectrum = abs(asst).sum(axis=1)
     specAx.plot(freqs, spectrum, label=f'{iters} Iteraciones')
         # estFreq = freqs[spectrum.argmax()]
         # mse[it] = (estFreq - f)**2
@@ -342,37 +356,54 @@ if __name__=='__main__':
     specAx.legend()
     
 
-    mainAxes[1, 2].pcolormesh(t, freqs, np.abs(sst),
+    mainAxes[1, 2].pcolormesh(t, afreqs, np.abs(asst),
                   cmap='viridis', shading='gouraud')
     mainAxes[1, 2].set_title(f'Synchrosqueezing Transform luego de {iters} iteraciones')
 
+    compAxes[1, 2].pcolormesh(t, afreqs, np.abs(asst),
+                  cmap='viridis', shading='gouraud')
+    compAxes[1, 2].set_title(f'Synchrosqueezing Transform luego de {iters} iteraciones')
+
     fig = plt.figure(f'SSWT adaptiva ({iters} iters)')
     ax = fig.add_subplot(111, projection='3d')
-    X, Y = np.meshgrid(t, freqs)
-    ax.plot_surface(X, Y, abs(sst))
-
-    deltaFreqs = np.diff(freqs, append=(2*freqs[-1] - freqs[-2]))
-    indexes  = np.where(np.logical_and(freqs >= minFreq, freqs<=maxFreq))[0]
-    signalR = (1/C) * (sst[indexes,:]).sum(axis=0)
+    X, Y = np.meshgrid(t, afreqs)
+    ax.plot_surface(X, Y, abs(asst), cmap='viridis')
+  
+    signalR = reconstruct(asst, wav, afreqs)
     
-    mainAxes[0, 2].plot(t, signalR.real)
+    mainAxes[0, 2].plot(t, signalR)
     mainAxes[0, 2].set_title('señal reconstruída con algorimto adaptivo')
 
     fig, ax = plt.subplots(1)
-    ax.plot(freqs, np.abs(sst).sum(axis=1))
+    ax.plot(afreqs, np.abs(asst).sum(axis=1))
     fig.suptitle('Espectro de la SST')
 
-    density = 1 - 0.75*sp.gaussian(int(len(signalR.real)*2.3), std=(len(signalR.real)/4))
+    f_sst = freqs[np.argmax(abs(sst), axis=0)]
+    f_asst = afreqs[np.argmax(abs(asst), axis=0)]
 
     print(f'Tiempo de muestreo = {config.ts}')
     fig, ax = plt.subplots(1)
     ax.plot(np.fft.rfftfreq(len(signalR.real), d=config.ts), abs(np.fft.rfft(signalR.real)), label='Espectro Señal reconstruída')
-    ax.plot(t, density[:len(signalR.real)], label='Función densidad')
     ax.legend()
-    fig.suptitle('Comparación señal con función densidad')
+    fig.suptitle('Comparación espectro')
 
-    # fig, ax = plt.subplots(1)
-    # ax.plot(range(iters), mse)
-    # fig.suptitle('MSE en función de Iteraciones')
+    fig, ax = plt.subplots(1)
+    ax.plot(t[:len(sig)], f_sst, label='sswt')
+    ax.plot(t[:len(sig)], f_asst, label='sswt-adp')
+    ax.plot(t[:len(sig)], f, label='signal')
+    ax.legend()
+    fig.suptitle('Frecuencias instantáneas')
+
+    mse_sst = (f - f_sst)**2
+    mse_asst = (f - f_asst)**2
+
+    mse_sst_total = mse_sst.sum() / len(mse_sst)
+    mse_asst_total = mse_asst.sum() / len(mse_asst)
+
+    fig, ax = plt.subplots(1)
+    ax.plot(f, mse_sst, label=f'SST - MSE = {mse_sst_total:.3}')
+    ax.plot(f, mse_asst, label=f'ADPT SST - MSE = {mse_asst_total:.3}')
+    ax.legend()
+    fig.suptitle('MSE en función f')
     
     plt.show()

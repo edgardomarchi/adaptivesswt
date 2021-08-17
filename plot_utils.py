@@ -54,9 +54,9 @@ def plotFilters(wav: ContinuousWavelet, scales: np.ndarray,
         f = np.fft.fftfreq(max_len, ts)
         filt_fft = np.fft.fft(filt, n=max_len)
         filt_fft /= np.abs(filt_fft).max()
-        ax.plot(f, np.abs(filt_fft)**2, alpha=0.6)
+        ax.plot(f[f>=0], (np.abs(filt_fft)**2)[f>=0], alpha=0.6)
 
     sigFFT = np.abs(np.fft.fft(signal))
     sigFFT /= sigFFT.max()
     sigF = np.fft.fftfreq(len(sigFFT), ts)
-    ax.plot(sigF, sigFFT)
+    ax.plot(sigF[sigF>=0], sigFFT[sigF>=0])

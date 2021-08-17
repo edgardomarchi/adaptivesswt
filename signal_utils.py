@@ -166,7 +166,7 @@ def testUpDownChirp(t: np.ndarray, fmin: float, fmax: float) -> Tuple[np.ndarray
     fr = np.concatenate((f,f[::-1]))
     return f, np.sin(np.pi*fr*t)
 
-def quadraticChirp(t: np.ndarray, fmin: float, fmax: float) -> np.ndarray:
+def quadraticChirp(t: np.ndarray, fmin: float, fmax: float) -> Tuple[np.ndarray, np.ndarray]:
     """Chirp cuadrática con el vértice en T/2
 
     Parameters
@@ -180,11 +180,30 @@ def quadraticChirp(t: np.ndarray, fmin: float, fmax: float) -> np.ndarray:
 
     Returns
     -------
-    np.ndarray
-        Muestras de la señal
+   Tuple[np.ndarray, np.ndarray]
+        Tupla con frecuencias instantáneas y muestras de la señal
     """
-    return spchirp(t, f0=fmin, f1=fmax, t1=t[int(len(t)/2)], method='quadratic',
-                   vertex_zero=False)
+    f0 = fmin
+    f1 = fmax
+    t1 = t[int(len(t)/2)]
+    f = f1 - (f1 - fmin) * (t1 - t)**2 / t1**2
+
+    return f, spchirp(t, f0=f0, f1=f1, t1=t1, method='quadratic',
+                      vertex_zero=False)
+
+def crossChrips(t: np.ndarray, fmin: float, fmax: float, N: int) -> Tuple:
+    
+    nPoints = len(t)
+    f_init = np.linspace(fmin, fmax, N)
+    f_end = np.linspace(fmax, fmin, N)
+    freqs = np.zeros((N, nPoints))
+    chirps = np.zeros((N, nPoints))
+    for i in range(N):
+        freqs[i,:] = f_init[i] + (f_end[i] - f_init[i]) * (t / t[-1])
+        chirps[i,:] = spchirp(t, f_init[i], t[-1], f_end[i])
+    signal = chirps.sum(axis=0)
+    return freqs, signal
+
 
 def delta(t: np.ndarray, td: float) -> np.ndarray:
     """Delta ubicada en td

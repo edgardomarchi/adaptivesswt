@@ -63,6 +63,27 @@ def calcScalesAndFreqs(ts: float, wcf: float, fmin: float, fmax: float, nv: floa
     return scales[1:-1], freqs[1:-1], deltaScales, deltaFreqs
 
 
+def getDeltaAndBorderFreqs(freqs: np.ndarray)-> Tuple[np.ndarray, np.ndarray]:
+    """Devuelve los delta de frecuencia y las frecuencias borde de los bins
+
+    Parameters
+    ----------
+    freqs : np.ndarray
+        Array de frecuencias centrales
+
+    Returns
+    -------
+    Tuple[np.ndarray, np.ndarray]
+        Tupla con los deltaF y las frecuencias borde
+    """
+    deltaFreqs = np.diff(freqs, prepend=freqs[1])
+    deltaFreqs[0] *= -1
+    borderFreqs = np.concatenate((freqs-deltaFreqs/2,
+                                  np.array([freqs[-1]+deltaFreqs[-1]/2])))
+    deltaFreqs = np.diff(borderFreqs)
+    return deltaFreqs, borderFreqs
+
+
 if __name__=='__main__':
 
     fs = 10
