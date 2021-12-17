@@ -73,15 +73,10 @@ def sswt(signal: np.ndarray,
         logger.debug('Usando escalas custom')
         
         deltaScales = -1*np.diff(scales, prepend=scales[1]) # el último da es igual al anterior
-        deltaScales[0]*=-1                                 #  "
+        deltaScales[0]*=-1                                  #  "
     
     logger.debug('Escalas: \n%s\n', scales)
     logger.debug('Delta escalas: \n%s\n', deltaScales)
-
-    scaleExp = -3/2  # LOG: ** (-1/2) - LIN: **(-3/2)
-    aScale = (scales ** scaleExp) * deltaScales
-
-    logger.debug('a_k^{%s} * da_k: \n%s\n', scaleExp, aScale)
 
     wav = pywt.ContinuousWavelet(f'cmor{wbw}-{wcf}')   
     # wav = pywt.ContinuousWavelet(f'shan{config.wbw}-{config.wcf}')
@@ -94,7 +89,28 @@ def sswt(signal: np.ndarray,
 
     cwt_matr, freqs = pywt.cwt(signal, scales, wav, sampling_period=ts,
                                method='fft')
-    
+    St = synchrosqueeze(cwt_matr, freqs, ts, scales, deltaScales, umbral, numProc)
+    # fig, ax = plt.subplots(1)
+    # ax.set_title('ST Transform')
+    # ax.pcolormesh(t, freqs, np.abs(St), cmap='viridis', shading='nearest')
+
+    # St = synchrosqueeze(2*St/(abs(St).max())*(abs(cwt_matr).max()), freqs, ts, scales, deltaScales, umbral, numProc)
+    # for i in range(1):
+        # fig, ax = plt.subplots(1)
+        # ax.set_title(f'MSST Transform {i}')
+        # St = synchrosqueeze(St, freqs, ts, scales, deltaScales, umbral, numProc)
+        # ax.pcolormesh(t, freqs, np.abs(St), cmap='viridis', shading='nearest')
+
+    return St, cwt_matr, freqs, scales
+
+
+def synchrosqueeze(cwt_matr: np.ndarray, freqs: np.ndarray, ts: float, scales: np.ndarray,
+                   deltaScales: np.ndarray, umbral: float, numProc: int):
+
+    scaleExp = -3/2  # LOG: ** (-1/2) - LIN: **(-3/2)
+    aScale = (scales ** scaleExp) * deltaScales
+
+    logger.debug('a_k^{%s} * da_k: \n%s\n', scaleExp, aScale)
     #### Frecuencias ####
     # if custom_scales is not None:
     #     deltaFreqs = np.diff(freqs, prepend=freqs[1]) # append=(2*freqs[-1] - freqs[-2]))
@@ -168,9 +184,8 @@ def sswt(signal: np.ndarray,
     #aScale *= density
     #aScale *= da
 
-    create_processes(freqs, deltaFreqs, borderFreqs, 
-                     scales, deltaScales, aScale,
-                     jobs, results, numProc)
+    create_processes(deltaFreqs, borderFreqs, 
+                     aScale, jobs, results, numProc)
     
     chunkSize = add_jobs(cwt_matr, wab, numProc, jobs)
     
@@ -184,14 +199,16 @@ def sswt(signal: np.ndarray,
         job, StChunk = results.get_nowait()
         St[:,job*chunkSize:(job+1)*chunkSize] = StChunk[:,:]
     print('Synchrosqueezing Done!')
-    return St, cwt_matr, freqs, scales
+    return St
 
 
-def create_processes(freqs, deltaFreqs, borderFreqs,
-                     scales, deltaScales, aScale, jobs, results, concurrency):
+
+
+def create_processes(deltaFreqs, borderFreqs,
+                     aScale, jobs, results, concurrency):
     for _ in range(concurrency):
         process = mp.Process(target=freqMap,
-                             args=(freqs, deltaFreqs, borderFreqs, aScale, jobs, results))
+                             args=(deltaFreqs, borderFreqs, aScale, jobs, results))
         process.daemon = True
         process.start()
     logger.info(f'{concurrency} procesos creados.\n')
@@ -207,7 +224,7 @@ def add_jobs(cwtmatr, wab, numJobs, jobs):
     return chunkSize
 
 
-def freqMap(freqs: np.ndarray, deltaFreqs: np.ndarray, borderFreqs: np.ndarray,
+def freqMap(deltaFreqs: np.ndarray, borderFreqs: np.ndarray,
             aScale: np.ndarray, jobs: mp.JoinableQueue, results: mp.Queue):
     
     while True:
@@ -231,6 +248,8 @@ def _freqSearch(deltaFreqs: np.ndarray, borderFreqs: np.ndarray, aScale: np.ndar
                                         wab[:,b] <= borderFreqs[w+1])
                 
             St[w,b] = (tr_matr[components,b] * aScale[components]).sum() / deltaFreqs[w]
+            # St[w,b] = (tr_matr[components,b]).sum()
+
     return St 
 
 def reconstruct(sst: np.ndarray, wavelet: pywt.ContinuousWavelet, freqs: np.ndarray)-> np.ndarray:
@@ -279,16 +298,16 @@ if __name__=='__main__':
     t, ts = np.linspace(0, stopTime, signalLen, endpoint=False, retstep=True)
 
     # signal = generator.testSine(t, 1) + generator.testSine(t,10) + generator.testSine(t, 20) + generator.testSine(t,30) + generator.testSine(t,39)
-    # signal = generator.testSig(t)
-    _, signal = generator.testChirp(t, 0.1, 40)
-    # signal = generator.quadraticChirp(t, 1, 40)
+    signal = generator.testSig(t)
+    # _, signal = generator.testChirp(t, 0.1, 30)
+    # _, signal = generator.quadraticChirp(t, 1, 30)
 
     wcf = 1#0.5
-    wbw = 4
+    wbw = 1
 
-    maxFreq = 50 #fs/3
+    maxFreq = 10 #fs/3
     minFreq = 0.1
-    numFreqs = 50
+    numFreqs = 256
 
     assert fs/len(signal)<= minFreq, 'ATENCIÓN: La mínima frecuencia de análisis está por debajo de L/N!'
 
@@ -300,7 +319,7 @@ if __name__=='__main__':
         wcf=wcf,
         wbw=wbw,
         waveletBounds=(-8,8),
-        umbral=signal.max()/(100),
+        umbral=signal.max()/(10000),
         numProc=2,
         log=False,
         plotFilt=True)
@@ -310,6 +329,10 @@ if __name__=='__main__':
 
     # sig=sp.hilbert(sig)
     sst, cwt, freqs, scales = sswt(signal, **config.asdict())
+
+    cwtFig, ax = plt.subplots(1)
+    ax.pcolormesh(t, freqs, np.abs(cwt), cmap='viridis', shading='gouraud')
+    ax.set_title('Wavelet Transform')
 
     from scipy import signal as sp
     cwtmatr = sp.cwt(signal, sp.morlet2, scales)
@@ -361,9 +384,9 @@ if __name__=='__main__':
     sax.legend()
 
     error = (signal - signalR_sst)**2
-    fig, ax = plt.subplots(1)
-    ax.plot(t, error)
-    fig.suptitle('Error cuadrático')
+    # fig, ax = plt.subplots(1)
+    # ax.plot(t, error)
+    # fig.suptitle('Error cuadrático')
 
     print(f'MSE: {error.mean()}')
 

@@ -118,8 +118,8 @@ def proportional(nv: int, spectrum: np.ndarray) -> np.ndarray:
     assert False #should never happen
 
 
-def calcNumWavelets(spectrum:np.ndarray, freqs:np.ndarray,
-                    plotBands:bool=False) -> np.ndarray:
+def calcNumWavelets(spectrum:np.ndarray, freqs:np.ndarray, method='proportional', thrsh=1/20,
+                    plotBands:bool=True) -> np.ndarray:
     """Calcula la cantidad de wavelets por banda en función del espectro
 
     Parameters
@@ -128,6 +128,8 @@ def calcNumWavelets(spectrum:np.ndarray, freqs:np.ndarray,
         Espectro de la señal a analizar
     freqs : np.ndarray
         Eje de frecuencias
+    method : str
+        Método de reasignación de frecuencias: 'proportional', 'threshold'
     plotBands : bool
         Indica si plotear el espectro y bandas asignadas
 
@@ -136,7 +138,15 @@ def calcNumWavelets(spectrum:np.ndarray, freqs:np.ndarray,
     np.ndarray
         Cantidad de wavelets a asignar por banda
     """
-    numWavelets = proportional(len(spectrum), spectrum)
+    if method=='proportional':
+        numWavelets = proportional(len(spectrum), spectrum)
+    elif method=='threshold':
+        numWavelets = np.where(spectrum > (spectrum.max() * thrsh), 1, 0)
+        numUnusedWavelets = len(spectrum) - numWavelets.sum()  
+        numWavelets += proportional(numUnusedWavelets, spectrum)
+    else:  # For now, proportional is the default
+        numWavelets = proportional(len(spectrum), spectrum)
+
     rem = len(spectrum) - numWavelets.sum()
     logger.debug('Frecuencias centrales:\n %s', freqs)
     logger.debug('Resto: %d', rem)
@@ -144,15 +154,15 @@ def calcNumWavelets(spectrum:np.ndarray, freqs:np.ndarray,
     if plotBands:
         fig, axes = plt.subplots(2,1,sharex=True)
         axes[0].stem(freqs, abs(spectrum))
-        axes[0].set_title('Potencia')
+        axes[0].set_title('Energy per band')
         axes[1].stem(freqs, numWavelets)
-        axes[1].set_title('Cantidad de wavelets por banda')
-        fig.suptitle('Espectro y frecuencias asignadas por banda')
+        axes[1].set_title('Number of reassigned analysis frequencies')
+        fig.suptitle(f'Analysis for N={len(spectrum)}')
 
     return numWavelets
 
 
-def adaptive_sswt(iters:int=2, *args, **kwargs) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+def adaptive_sswt(signal :np.ndarray, iters:int=2, method='threshold', thrsh = 1/20, **kwargs) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """Realiza `iters` calculos de la SSWT adaptando las escalas a la energía por banda de la señal
 
     Parameters
@@ -168,27 +178,31 @@ def adaptive_sswt(iters:int=2, *args, **kwargs) -> Tuple[np.ndarray, np.ndarray,
         (St:np.ndarray, Wt:np.ndarray, freqs:np.ndarray, scales:np.ndarray) Matrices con las transformadas ST y WT\
             y vectores con frecuencias y escalas de análisis.
     """
-    minimumFreq = 1 / (kwargs['ts'] * len(args[0]))
+    minimumFreq = 1 / (kwargs['ts'] * len(signal))
     maximumFreq = 1 / (kwargs['ts'] * 2)
     logger.debug("---- Mínima frecuencia para esta señal: %s", minimumFreq)
     # Transformada inicial:
-    sst, cwt, freqs, scales_adp = sswt(*args, **kwargs)
+    sst, cwt, freqs, scales_adp = sswt(signal, **kwargs)
 
     for i in range(iters):
         logger.debug("******************* Iteración: %d ********************", i)
-        spectrum = abs(sst).sum(axis=1)
+        spectrum = abs(cwt).sum(axis=1)/len(signal)
         #del sst
         #del cwt
-        numWavelets = calcNumWavelets(spectrum, freqs, plotBands=True)
-
+        numWavelets = calcNumWavelets(spectrum, freqs, method, thrsh, plotBands=True)
+        
         logger.debug("---- Número de frecuncias asignadas por banda:\n%s\n----------", numWavelets)
         logger.debug("---- Frecuencias centrales de análisis:\n%s\n----------", freqs)
         limits = (freqs[:-1] + freqs[1:]) / 2
         logger.debug("---- Límites entre bandas de análisis:\n%s\n----------", limits)
 
-        freqBands = np.concatenate((np.array([2*freqs[0]-limits[0]]),#np.array([kwargs['maxFreq']]), # 
-                                    limits,#[::-1],
-                                    np.array([2*freqs[-1]-limits[-1]]))) #np.array([kwargs['minFreq']]))) # 
+        if (numWavelets==np.ones_like(freqs)).all():
+            print(f'Se encontró equilibrio en {i} iteraciones')
+            break 
+
+        freqBands = np.concatenate((np.array([2*freqs[0]-limits[0]]),
+                                    limits,
+                                    np.array([2*freqs[-1]-limits[-1]]))) 
         # Si la segunda frecuencia está muy alejada de la primera el límite entre ellas
         # puede ser más grande que 2 veces la primer frecuencia.
         freqBands = np.where(freqBands >= minimumFreq, freqBands, minimumFreq)
@@ -202,13 +216,9 @@ def adaptive_sswt(iters:int=2, *args, **kwargs) -> Tuple[np.ndarray, np.ndarray,
 
         logger.debug("---- Escalas a utilizar para CWT:\n%s\n----------", scales_adp)
         kwargs['custom_scales'] = scales_adp
-
-        #del freqs
-        #gc.collect()
-        sst, cwt, freqs, scales_adp = sswt(*args, **kwargs)
+        sst, cwt, freqs, scales_adp = sswt(signal, **kwargs)
         if not sst.any():
             logger.warning('ATENCIÓN SSWT contiene sólo 0s')
-
         
     return sst, cwt, freqs, scales_adp
 
@@ -223,9 +233,9 @@ if __name__=='__main__':
     logger.setLevel(logging.DEBUG)
 #%% Parámetros
 
-    stopTime = 15
+    stopTime = 12
     fs = 200
-    signalLen = stopTime * fs    #2000
+    signalLen = int(stopTime * fs)    #2000
 
     t, ts = np.linspace(0, stopTime, signalLen, endpoint=False, retstep=True)
 
@@ -239,16 +249,19 @@ if __name__=='__main__':
     mainFig.set_tight_layout(True)
     
 #%% Señal de prueba
-
+    # longT = np.linspace(0, 20, int(signalLen*20/stopTime))
     # sig = generator.pulsePosModSig(t,pw=t[1]*3, prf=1)
     # sig = generator.hbSig(t)
-    # f, sig = generator.testChirp(t, 1, 40)
+    # f, sig = generator.testChirp(t, 1, 20)
     # _, sig = testUpDownChirp(t,1,10)
-    f, sig = generator.quadraticChirp(t, 1, 20)
+    f, sig = generator.quadraticChirp(t, 5, 20)
     # sig = generator.testSig(t)
     # sig = generator.testSine(t,f)
     # sig = generator.delta(t, 2)
     # fqs, sig = generator.crossChrips(t, 1, 20, 4)
+    # f=fqs[0]
+    # sig = sig[:signalLen]
+    # f = f[:signalLen]
 
     mainAxes[0,0].plot(t[:len(sig)], sig)
     mainAxes[0,0].set_title('Señal')
@@ -269,12 +282,12 @@ if __name__=='__main__':
     
 
 #%% Transformada
-    wcf = 0.5
-    wbw = 8
+    wcf = 1
+    wbw = 1
 
-    maxFreq = 21
+    maxFreq = 30
     minFreq = 0.1
-    numFreqs = 50
+    numFreqs = 12
 
     config = Configuration(
         minFreq=minFreq,
@@ -283,7 +296,7 @@ if __name__=='__main__':
         ts=ts,
         wcf=wcf,
         wbw=wbw,
-        waveletBounds=(-12,12),
+        waveletBounds=(-8,8),
         umbral=sig.max()/(100),
         numProc=1,
         log=False)
@@ -332,7 +345,7 @@ if __name__=='__main__':
     mainAxes[0, 1].legend()
     mainAxes[0, 1].set_title('Señal reconstruída')
 
-    iters = 4
+    iters = 8
 
     mse = np.zeros(iters)
     fig, specAx = plt.subplots(1)
@@ -347,7 +360,7 @@ if __name__=='__main__':
         # print(f'******************************************* Iteración: {it} *******************************************')
         # if it == iters-1:
     config.plotFilt = False
-    asst, _, afreqs, scales = adaptive_sswt(iters, sig, **config.asdict())
+    asst, _, afreqs, scales = adaptive_sswt(sig, iters, method='proportional', thrsh=1/20, **config.asdict())
     spectrum = abs(asst).sum(axis=1)
     specAx.plot(freqs, spectrum, label=f'{iters} Iteraciones')
         # estFreq = freqs[spectrum.argmax()]
@@ -386,24 +399,72 @@ if __name__=='__main__':
     ax.plot(np.fft.rfftfreq(len(signalR.real), d=config.ts), abs(np.fft.rfft(signalR.real)), label='Espectro Señal reconstruída')
     ax.legend()
     fig.suptitle('Comparación espectro')
+    
+    ## Minibatch
+    batch_time = 2
+    num_batchs = int(stopTime // batch_time)
+    bLen = int(len(t[t<=(num_batchs*batch_time)]) // num_batchs)
+    bPad = int(bLen * 0.8)
+    sigPad = np.zeros(bPad)
+    batch_iters = 8
 
+    batchFig = plt.figure('ASSWT minibatch')
+    bgs = batchFig.add_gridspec(1,num_batchs)
+    bgs.update(wspace=0.0)
+    batchAxes = bgs.subplots(sharey=True)
+    f_batch_asst = []
+    batchFig.set_tight_layout(True)
+
+    recoveredSignal = np.zeros_like(sig)
+
+    for b in range(num_batchs):
+        signalBatch = sig[(b*bLen)-bPad:((b+1)*bLen)+bPad] if b else sig[:((b+1)*bLen)+bPad]
+        timeBatch = t[b*bLen:((b+1)*bLen)]
+        # axes[b].plot(timeBatch, signalBatch)
+        asst_batch, _, freqsBatch, _ = adaptive_sswt(signalBatch, batch_iters, method='threshold', thrsh=1/8, **config.asdict())
+        if b==0:
+            batchAxes[b].pcolormesh(timeBatch, freqsBatch, np.abs(asst_batch[:,:bLen]),
+                               cmap='viridis', shading='gouraud')
+            f_batch_asst.append(freqsBatch[np.argmax(abs(asst_batch[:,:bLen]), axis=0)])
+            recoveredSignal[:bLen] = reconstruct(asst_batch, wav, freqsBatch)[:bLen]
+        else:
+            batchAxes[b].pcolormesh(timeBatch, freqsBatch, np.abs(asst_batch[:,bPad:bLen+bPad]),
+                               cmap='viridis', shading='gouraud')
+            f_batch_asst.append(freqsBatch[np.argmax(abs(asst_batch[:,bPad:bLen+bPad]), axis=0)])
+            recoveredSignal[b*bLen:(b+1)*bLen] = reconstruct(asst_batch, wav, freqsBatch)[bPad:bLen+bPad]
+    
+    f_batch_asst = np.array(f_batch_asst).flatten()
+ 
     fig, ax = plt.subplots(1)
     ax.plot(t[:len(sig)], f_sst, label='sswt')
     ax.plot(t[:len(sig)], f_asst, label='sswt-adp')
+    ax.plot(t[:len(f_batch_asst)], f_batch_asst, label='asst minibatch')
     ax.plot(t[:len(sig)], f, label='signal')
     ax.legend()
     fig.suptitle('Frecuencias instantáneas')
 
+    fig, ax = plt.subplots(1)
+    ax.plot(t[:len(recoveredSignal)], sig[:len(recoveredSignal)], label='Señal', alpha=0.8)
+    ax.plot(t[:len(recoveredSignal)], recoveredSignal, label='Señal recontruida')
+    ax.legend()
+    fig.suptitle('Señal reconstruida')
+
     mse_sst = (f - f_sst)**2
     mse_asst = (f - f_asst)**2
+    mse_asst_batch = (f[:len(f_batch_asst)] - f_batch_asst)**2
 
     mse_sst_total = mse_sst.sum() / len(mse_sst)
     mse_asst_total = mse_asst.sum() / len(mse_asst)
+    mse_asst_batch_total = mse_asst_batch.sum() / len(mse_asst_batch)
 
     fig, ax = plt.subplots(1)
-    ax.plot(f, mse_sst, label=f'SST - MSE = {mse_sst_total:.3}')
-    ax.plot(f, mse_asst, label=f'ADPT SST - MSE = {mse_asst_total:.3}')
+    ax.plot(t[:len(mse_sst)], mse_sst, label=f'SST - MSE = {mse_sst_total:.3}')
+    ax.plot(t[:len(mse_asst)], mse_asst, label=f'ADPT SST - MSE = {mse_asst_total:.3}')
+    ax.plot(t[:len(f_batch_asst)], mse_asst_batch, label=f'ADPT SST BATCH - MSE = {mse_asst_batch_total:.3}')
     ax.legend()
     fig.suptitle('MSE en función f')
-    
-    plt.show()
+
+
+    plt.show(block=False)
+    input('Presione una tecla para cerrar los gráficos...')
+    plt.close('all')
