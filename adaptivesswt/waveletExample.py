@@ -12,14 +12,14 @@ import matplotlib.pyplot as plt
 
 plt.close('all')
 
-fs = 30  #Hz
+fs = 2000  #Hz
 
-wcf=1
+wcf=0.5
 wbw=2#16.0
 
 wav = pywt.ContinuousWavelet(f'cmor{wbw}-{wcf}')
-wav.lower_bound = -8
-wav.upper_bound = 8
+wav.lower_bound = -3
+wav.upper_bound = 3
 
 print(wav)
 
@@ -29,28 +29,45 @@ print("Continuous wavelet will be evaluated over the range [{}, {}]".format(
 
 width = wav.upper_bound - wav.lower_bound
 
-flo_norm = 1/fs * 0.5
-fhi_norm = 1/fs * 15
+flo_norm = 1/fs * 0.1
+fhi_norm = 1/fs * 10
 maxScale = wcf / flo_norm
 minScale = wcf / fhi_norm
-numScales = 6
+numScales = 10
 print(f'Max scale: {maxScale}, Min scale: {minScale}')
 scales = np.linspace(minScale, maxScale, numScales)
-scales = np.linspace(1,6,6)
+#scales = np.linspace(1,5,7)
+
+precision = 7
 
 max_len = int(np.max(scales)*width + 1)
 t = np.arange(max_len)
 fig, axes = plt.subplots(len(scales), 2, figsize=(12, 6))
+# The following code is adapted from the internals of cwt
+int_psi, x = pywt.integrate_wavelet(wav, precision=precision)
+print(f'int_psi shape = {int_psi.shape} ; x shape = {x.shape}')
+step = x[1] - x[0]
+
+plt.figure('Int psi')
+plt.plot(x,int_psi.real)
+plt.plot(x,int_psi.imag)
+plt.figure('Psi')
+wavefun, y = wav.wavefun(level=precision)
+plt.plot(y,wavefun.real)
+plt.plot(y,wavefun.imag)
+print(f'Len of int_psi = {len(x)}; len of psi = {len(y)}')
+
 for n, scale in enumerate(scales):
 
-    # The following code is adapted from the internals of cwt
-    int_psi, x = pywt.integrate_wavelet(wav, precision=16)
-    step = x[1] - x[0]
+
     j = np.floor(
         np.arange(scale * width + 1) / (scale * step))
+    print(f'J len: = {len(j)}')
+    print(f'Len J* =  {len(np.arange(scale * width + 1))}')
+    print(f'Arg J* =  {np.ceil(scale * width +1)}')
     if np.max(j) >= np.size(int_psi):
         j = np.delete(j, np.where((j >= np.size(int_psi)))[0])
-    j = j.astype(np.int)
+    j = j.astype(int)
 
     # normalize int_psi for easier plotting
     int_psi /= np.abs(int_psi).max()
