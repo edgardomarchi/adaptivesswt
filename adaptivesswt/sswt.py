@@ -12,8 +12,8 @@ import multiprocessing as mp
 from numba import njit
 from typing import Tuple
 
-from .freq_utils import calcScalesAndFreqs, getDeltaAndBorderFreqs, getDeltaScales ,calcFilterLength
-from .plot_utils import plotFilters
+from .utils.freq_utils import calcScalesAndFreqs, getDeltaAndBorderFreqs, getDeltaScales ,calcFilterLength
+from .utils.plot_utils import plotFilters
 
 def sswt(signal: np.ndarray,
          minFreq: float,
@@ -267,7 +267,7 @@ def reconstructCWT(cwt: np.ndarray, wav: pywt.ContinuousWavelet,
 
 if __name__=='__main__':
     from configuration import Configuration
-    import signal_utils as generator
+    import utils.signal_utils as generator
 
     plt.close('all')
     logging.basicConfig(filename='sswt.log', filemode='w',

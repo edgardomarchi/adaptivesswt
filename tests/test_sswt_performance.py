@@ -7,10 +7,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 from multiprocessing import cpu_count
 
-currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
-parentdir = os.path.dirname(currentdir)
-sys.path.insert(0, parentdir) 
-
 from adaptivesswt.sswt import sswt
 from adaptivesswt.configuration import Configuration
 from adaptivesswt import signal_utils as generator
@@ -52,7 +48,7 @@ def test_complexity(stopSignalTime: float = 12) -> np.ndarray:
 
 
 if __name__ == '__main__':
-    numLengths = 12
+    numLengths = 2
     signalLengths = np.linspace(1, 12, numLengths, dtype=int)
     print(f'Performing test for signal lengths of {signalLengths} s.')
     timings = []
