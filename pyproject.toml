@@ -21,7 +21,7 @@ keywords = ["Synchrosqueezing", "Wavelet", "Transform", "DSP"
 python = "^3.7"
 pywavelets = "^1.2"
 numpy = "^1.20"
-numba = "^0.53"
+numba = "*"
 
 [tool.poetry.dev-dependencies]
 
