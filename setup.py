@@ -8,7 +8,7 @@ package_data = \
 {'': ['*']}
 
 install_requires = \
-['numba', 'numpy>=1.20,<2.0', 'pywavelets>=1.2,<2.0']
+['numba', 'numpy>=1.20,<2.0', 'pywavelets>=1.2,<2.0', 'scipy']
 
 setup_kwargs = {
     'name': 'adaptivesswt',
