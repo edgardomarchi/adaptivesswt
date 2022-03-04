@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 import logging
-logger = logging.getLogger()
+logger = logging.getLogger(__name__)
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -10,15 +10,15 @@ import scipy.signal as sp
 import pywt
 from typing import Tuple
 
-from configuration import Configuration
+from .configuration import Configuration
 
-import signal_utils as generator
-from freq_utils import getScale, calcScalesAndFreqs
-from sswt import sswt, reconstruct, reconstructCWT
+from .utils import signal_utils as generator
+from .utils.freq_utils import getDeltaAndBorderFreqs, getScales, calcScalesAndFreqs
+from .sswt import sswt, reconstruct, reconstructCWT
 
 
 def calcScales(ts:float, wcf:float, nvPerBand:list, flo:float, fhi:float,
-               log: bool=False, freqBands:list=None) -> np.ndarray:
+               freqBands:list=None) -> np.ndarray:
     """Calcula las escalas a utilizar en la WT
 
     Parameters
@@ -33,8 +33,6 @@ def calcScales(ts:float, wcf:float, nvPerBand:list, flo:float, fhi:float,
         Frecuencia mínima
     fhi : float
         Frecuencia máxima
-    log : bool
-        Determina si la distribución de frecuencias es logarítmica o lineal, por default True
     freqBands : list, optional
         Frecuencias límite entre bandas, by default None
 
@@ -44,11 +42,7 @@ def calcScales(ts:float, wcf:float, nvPerBand:list, flo:float, fhi:float,
         Escalas para utilizar en la CWT de menor a mayor (i.e. de (fhi a flo])
     """
     if freqBands is None:
-        if log:
-            freqs = np.logspace(np.log10(flo), np.log10(fhi),
-                                len(nvPerBand)+1, endpoint=True)
-        else:
-            freqs = np.linspace(flo, fhi, len(nvPerBand)+1, endpoint=True)
+        freqs = np.linspace(flo, fhi, len(nvPerBand)+1, endpoint=True)
     else:
         assert len(freqBands) == len(nvPerBand)+1,\
             "Error: La especificación de bandas y numero de voces no es coherente!"
@@ -56,42 +50,82 @@ def calcScales(ts:float, wcf:float, nvPerBand:list, flo:float, fhi:float,
     scales = np.zeros(np.array(nvPerBand).sum())
     nv = 0
     for i in range(len(nvPerBand)):
-        bScales, _, _, _ = calcScalesAndFreqs(ts, wcf, freqs[i], freqs[i+1], nvPerBand[i], log)
+        bScales, _, _, _ = calcScalesAndFreqs(ts, wcf, freqs[i], freqs[i+1], nvPerBand[i])
         scales[nv:nv+nvPerBand[i]] = bScales
         nv += nvPerBand[i]
     return scales
 
-
-def calcBandScales(fs:float, wcf:float, numFreqs:int,
-                   flo:float, fhi:float, log:bool=False) -> np.ndarray:
-    """Calcula las escalas para la WT dentro de una banda determinada.
+def calcFreqs(ts:float, wcf:float, nvPerBand:np.ndarray, flo:float, fhi:float,
+              freqBands:np.ndarray=None) -> np.ndarray:
+    """Calcula las freqs a utilizar en la WT
 
     Parameters
     ----------
-    fs : float
-        Frecuencia de muestreo
+    ts : float
+        Período de muestreo
     wcf : float
-        Frecuencia central de la wavelet en realción a 'fs'
-    numFreqs : int
-        Cantidad de frecuencias dentro de la banda
+        Frecuencia central de la wavelet en relación a 'fs'
+    nvPerBand : np.ndarray
+        Número de voces por banda
     flo : float
         Frecuencia mínima
     fhi : float
         Frecuencia máxima
-    log : bool
-        True para separación logaritmica de frecuencias
+    freqBands : np.ndarray, optional
+        Frecuencias límite entre bandas, by default None
 
     Returns
     -------
     np.ndarray
-        Escalas para la banda de menor a mayor (i.e. de (fhi a flo])
+        Escalas para utilizar en la CWT de menor a mayor (i.e. de (fhi a flo])
     """
-    minScale = getScale(fhi, 1/fs, wcf)
-    maxScale = getScale(flo, 1/fs, wcf)
-    if log:
-        return np.logspace(np.log10(minScale), np.log10(maxScale), numFreqs,
-                           endpoint=False)
-    return np.linspace(minScale, maxScale, numFreqs, endpoint=False)
+    if freqBands is None:
+        freqs = np.linspace(flo, fhi, len(nvPerBand)+1, endpoint=True)
+    else:
+        assert len(freqBands) == len(nvPerBand)+1,\
+            "Error: La especificación de bandas y numero de voces no es coherente!"
+        freqs = freqBands
+    newFreqs = np.zeros(np.array(nvPerBand).sum())
+    nv = 0
+    numBands = len(nvPerBand)
+    for i in range(numBands):
+        endpoint = True if i == numBands else False
+        _, bFreqs, _, _ = calcScalesAndFreqs(ts, wcf, freqs[i], freqs[i+1], nvPerBand[i], endpoint)
+        newFreqs[nv:nv+nvPerBand[i]] = bFreqs
+        nv += nvPerBand[i]
+    return newFreqs
+
+# No usada?
+# def calcBandScales(fs:float, wcf:float, numFreqs:int,
+#                    flo:float, fhi:float, log:bool=False) -> np.ndarray:
+#     """Calcula las escalas para la WT dentro de una banda determinada.
+
+#     Parameters
+#     ----------
+#     fs : float
+#         Frecuencia de muestreo
+#     wcf : float
+#         Frecuencia central de la wavelet en realción a 'fs'
+#     numFreqs : int
+#         Cantidad de frecuencias dentro de la banda
+#     flo : float
+#         Frecuencia mínima
+#     fhi : float
+#         Frecuencia máxima
+#     log : bool
+#         True para separación logaritmica de frecuencias
+
+#     Returns
+#     -------
+#     np.ndarray
+#         Escalas para la banda de menor a mayor (i.e. de (fhi a flo])
+#     """
+#     minScale = getScale(fhi, 1/fs, wcf)
+#     maxScale = getScale(flo, 1/fs, wcf)
+#     if log:
+#         return np.logspace(np.log10(minScale), np.log10(maxScale), numFreqs,
+#                            endpoint=False)
+#     return np.linspace(minScale, maxScale, numFreqs, endpoint=False)
 
 
 def proportional(nv: int, spectrum: np.ndarray) -> np.ndarray:
@@ -162,69 +196,124 @@ def calcNumWavelets(spectrum:np.ndarray, freqs:np.ndarray, method='proportional'
     return numWavelets
 
 
-def adaptive_sswt(signal :np.ndarray, iters:int=2, method='threshold', thrsh = 1/20, otl=True, **kwargs) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-    """Realiza `iters` calculos de la SSWT adaptando las escalas a la energía por banda de la señal
+def adaptive_sswt(signal :np.ndarray, iters :int=2, method :str='proportional',
+                  thrsh :float=1/20, otl :bool=True, **kwargs) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Performs an adaptive sswt according energy distribution across signal spectrum.
 
     Parameters
     ----------
+    signal: np.ndarray
+        Signal to analyze
     iters : int, optional
-        Cantidad de iteraciones de adaptación, by default 2
+        Maximum number of adaptation iterations, by default 2
+    method: str, optional
+        Frequency reallocation method. Either 'threshold' or 'proportional', by default 'proportional'.
+    thrsh: float, optional
+        Detection threshold for 'threshold' method, by default '1/20'.
+    otl: bool, optional
+        True if off-the-loop synchrosqueezing is performed, by default True.
     **kwargs: dict
-        Mismos argumentos que `sswt()`
+        Same arguments than `sswt()`
 
     Returns
     -------
     tuple
-        (St:np.ndarray, Wt:np.ndarray, freqs:np.ndarray, scales:np.ndarray) Matrices con las transformadas ST y WT\
-            y vectores con frecuencias y escalas de análisis.
+        (St:np.ndarray, freqs:np.ndarray, tail: np.ndarray) Matrices with ST transform and \
+            and vectors containing analysis frequencies, and tail from padding respectively.
     """
     minimumFreq = 1 / (kwargs['ts'] * len(signal))
-    maximumFreq = 1 / (kwargs['ts'] * 2)
-    logger.debug("---- Mínima frecuencia para esta señal: %s", minimumFreq)
-    # Transformada inicial:
-    sst, cwt, freqs, scales_adp, tail = sswt(signal, **kwargs)
+    logger.debug("Minimum possible frequency for this signal: %s\n", minimumFreq)
 
+    # Initial transform:
+    sst, cwt, freqs, scales_adp, tail = sswt(signal, **kwargs)
+    # Adaptation loop
     for i in range(iters):
-        logger.debug("******************* Iteración: %d ********************", i)
+        logger.debug("******************* Iteration: %d ********************\n", i)
+        deltaFreqs, limits = getDeltaAndBorderFreqs(freqs)
         if otl:
-            spectrum = abs(cwt).sum(axis=1)/len(signal)
+            spectrum = abs(cwt).sum(axis=1)
         else:
-            spectrum = abs(sst).sum(axis=1)/len(signal)
-        #del sst
-        #del cwt
+            spectrum = abs(sst).sum(axis=1)
+ 
         numWavelets = calcNumWavelets(spectrum, freqs, method, thrsh, plotBands=False)
         
-        logger.debug("---- Número de frecuncias asignadas por banda:\n%s\n----------", numWavelets)
-        logger.debug("---- Frecuencias centrales de análisis:\n%s\n----------", freqs)
-        limits = (freqs[:-1] + freqs[1:]) / 2
-        logger.debug("---- Límites entre bandas de análisis:\n%s\n----------", limits)
+        logger.debug("Number of frequncies assigned per band:\n%s\n", numWavelets)
+        logger.debug("Center frequencies per band:\n%s\n", freqs)
+        #limits = (freqs[:-1] + freqs[1:]) / 2
+        logger.debug("Limits between bands:\n%s\n", limits)
 
         if (numWavelets==np.ones_like(freqs)).all():
-            print(f'Se encontró equilibrio en {i} iteraciones')
+            logger.debug('\nEquilibrium found in %d iterations.\n',i)
             break 
 
-        freqBands = np.concatenate((np.array([2*freqs[0]-limits[0]]),
-                                    limits,
-                                    np.array([2*freqs[-1]-limits[-1]]))) 
+        #freqBands = np.concatenate((np.array([2*freqs[0]-limits[0]]),
+        #                            limits,
+        #                            np.array([2*freqs[-1]-limits[-1]]))) 
+        freqBands = limits
         # Si la segunda frecuencia está muy alejada de la primera el límite entre ellas
         # puede ser más grande que 2 veces la primer frecuencia.
-        freqBands = np.where(freqBands >= minimumFreq, freqBands, minimumFreq)
-        freqBands = np.where(freqBands <= maximumFreq, freqBands, maximumFreq)
+        #freqBands = np.where(freqBands >= minimumFreq, freqBands, minimumFreq)
+        #freqBands = np.where(freqBands <= maximumFreq, freqBands, maximumFreq)
 
-        logger.debug("---- Frecuncias límites entre bandas incluyendo extremos:\n %s\n----------", freqBands)
+        #logger.debug("---- Frecuncias límites entre bandas incluyendo extremos:\n %s\n----------", freqBands)
 
-        scales_adp = calcScales(kwargs['ts'], kwargs['wcf'], numWavelets,
-                                kwargs['minFreq'], kwargs['maxFreq'],
-                                freqBands=freqBands, log=kwargs['log'])
+        freqs_adp = calcFreqs(kwargs['ts'], kwargs['wcf'], numWavelets,
+                              kwargs['minFreq'], kwargs['maxFreq'],
+                              freqBands=freqBands)
 
-        logger.debug("---- Escalas a utilizar para CWT:\n%s\n----------", scales_adp)
+        #getScales = lambda freqs : getScale(freqs, ts, wcf)
+        scales_adp = getScales(freqs_adp, ts, wcf)
+    
+        # scales_adp = calcScales(kwargs['ts'], kwargs['wcf'], numWavelets,
+        #                         kwargs['minFreq'], kwargs['maxFreq'],
+        #                         freqBands=freqBands, log=kwargs['log'])
+
+        logger.debug("Frequencies to use with CWT:\n%s\n", freqs_adp)
         kwargs['custom_scales'] = scales_adp
         sst, cwt, freqs, scales_adp, tail = sswt(signal, **kwargs)
         if not sst.any():
-            logger.warning('ATENCIÓN SSWT contiene sólo 0s')
+            logger.warning('ATENTION! SSWT contains only 0s')
         
-    return sst, cwt, freqs, scales_adp
+    return sst, freqs, tail
 
+def adaptive_sswt_miniBatch(batchSize: int, signal :np.ndarray, iters :int=2, method :str='proportional',
+                thrsh :float=1/20, otl :bool=True, **kwargs) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    tail = np.zeros(batchSize)
+    rTail = np.zeros(1)
+
+    num_batchs = np.ceil(len(signal)/batchSize, dtype=int)
+
+    for b in range(num_batchs):
+        # Checkear el último chunk
+#        signalBatch = sig[(b*batchSize)-bPad:((b+1)*batchSize)+bPad] if b else sig[:((b+1)*batchSize)+bPad]
+        if len(rTail) < len(tail):
+            tail[:len(rTail)] = rTail
+        else:
+            tail = rTail[:len(tail)]
+
+        signalBatch = sig[b*batchSize:((b+1)*batchSize)] + tail[:batchSize]
+
+        timeBatch = t[b*batchSize:((b+1)*batchSize)]
+        # axes[b].plot(timeBatch, signalBatch)
+        asst_batch, freqsBatch, rTail = adaptive_sswt(signalBatch, iters, method=method, thrsh=thrsh, otl=otl, **config.asdict())
+        if b==0:
+            #batchAxes[b]
+            compositeAxes[b].pcolormesh(timeBatch, freqsBatch, np.abs(asst_batch), #[:,:batchSize]),
+                            cmap='viridis', shading='gouraud')
+            f_batch_asst.append(freqsBatch[np.argmax(abs(asst_batch), #[:,:batchSize]), 
+                                                    axis=0)])
+            recoveredSignal[:batchSize] = reconstruct(asst_batch, config.C_psi, freqsBatch) #[:batchSize]
+        else:
+            #batchAxes[b]
+            compositeAxes[b].pcolormesh(timeBatch, freqsBatch, np.abs(asst_batch), #[:,bPad:batchSize+bPad]),
+                            cmap='viridis', shading='gouraud')
+            f_batch_asst.append(freqsBatch[np.argmax(abs(asst_batch),#[:,bPad:batchSize+bPad]),
+                                                    axis=0)])
+            recoveredSignal[b*batchSize:(b+1)*batchSize] = reconstruct(asst_batch, config.C_psi, freqsBatch) #[bPad:batchSize+bPad]
+
+
+    f_batch_asst = np.array(f_batch_asst).flatten()
+    return
     
 #%%
 if __name__=='__main__':
@@ -266,10 +355,10 @@ if __name__=='__main__':
     # f, sig = generator.testChirp(t, 10, 25)
     # f-=5
     # _, sig = testUpDownChirp(t,1,10)
-    # f, sig = generator.quadraticChirp(t, 5, 20)
+    f, sig = generator.quadraticChirp(t, 5, 25)
     # sig = generator.testSig(t)
-    sig = generator.testSine(t,15)
-    f = 15*np.ones_like(t)
+    # sig = generator.testSine(t,15)
+    # f = 15*np.ones_like(t)
     # sig = generator.delta(t, 2)
     # fqs, sig = generator.crossChrips(t, 1, 20, 4)
     # f=fqs[0]
@@ -309,17 +398,18 @@ if __name__=='__main__':
         ts=ts,
         wcf=wcf,
         wbw=wbw,
-        waveletBounds=(-8,8),
+        waveletBounds=(-3,3),
         threshold=sig.max()/(100),
-        numProc=8,
-        log=False)
+        numProc=4)
 
     spAx.specgram(sig, NFFT=int(numFreqs), Fs=fs, scale='linear', noverlap=numFreqs-1)
     spAx.set_title('Spectrogram')
     spAx.set_ylim([minFreq,maxFreq])
 
     # sig=sp.hilbert(sig)
-    sst, cwt, freqs, scales, tail = sswt(sig, **config.asdict())
+    scales, _, _, _ = calcScalesAndFreqs(ts, config.wcf, config.minFreq, config.maxFreq, config.numFreqs, endpoint=True)
+    cwt, freqsCWT = pywt.cwt(sig, scales, config.wav, sampling_period=ts, method='fft')
+    sst, _, freqs, _, tail = sswt(sig, **config.asdict())
  
     # fig = plt.figure("SSWT")
     # ax = fig.add_subplot(111, projection='3d')
@@ -350,7 +440,7 @@ if __name__=='__main__':
     print(f'\n\nLongitud de PSI: {len(psi)}\n\n')
 
     signalR_cwt = reconstructCWT(cwt, wav, scales, freqs)
-    signalR_sst = reconstruct(sst, wav, freqs)
+    signalR_sst = reconstruct(sst, config.C_psi, freqs)
 
     deltaFreqs = np.diff(freqs, append=(2*freqs[-1] - freqs[-2]))
   
@@ -420,7 +510,7 @@ if __name__=='__main__':
     bLen = int(len(t[t<=(num_batchs*batch_time)]) // num_batchs)
     bPad = int(bLen * 0.8)
     sigPad = np.zeros(bPad)
-    batch_iters = 3
+    batch_iters = 5
 
     # batchFig = plt.figure('A-SSWT streaming')
     # bgs = batchFig.add_gridspec(1, num_batchs)
@@ -449,27 +539,42 @@ if __name__=='__main__':
     compositeAxes[int((num_batchs-1)//2)].set_title('Adaptive SSWT - 2s frame')
     # asstAx.get_shared_x_axes().remove(asstAx)
 
+    tail = np.zeros(bLen)
+    rTail = np.zeros(1)
+    config.pad=True
+
     for b in range(num_batchs):
-        signalBatch = sig[(b*bLen)-bPad:((b+1)*bLen)+bPad] if b else sig[:((b+1)*bLen)+bPad]
+#        signalBatch = sig[(b*bLen)-bPad:((b+1)*bLen)+bPad] if b else sig[:((b+1)*bLen)+bPad]
+        if len(rTail) < len(tail):
+            tail[:len(rTail)] = rTail
+        else:
+            tail = rTail[:len(tail)]
+
+        signalBatch = sig[b*bLen:((b+1)*bLen)] + tail[:bLen]
+
         timeBatch = t[b*bLen:((b+1)*bLen)]
         # axes[b].plot(timeBatch, signalBatch)
-        asst_batch, _, freqsBatch, _ = adaptive_sswt(signalBatch, batch_iters, method='proportional', thrsh=1/10, otl=True, **config.asdict())
+        asst_batch, freqsBatch, rTail = adaptive_sswt(signalBatch, batch_iters, method='proportional', thrsh=1/10, otl=False, **config.asdict())
         if b==0:
             #batchAxes[b]
-            compositeAxes[b].pcolormesh(timeBatch, freqsBatch, np.abs(asst_batch[:,:bLen]),
+            compositeAxes[b].pcolormesh(timeBatch, freqsBatch, np.abs(asst_batch), #[:,:bLen]),
                                cmap='viridis', shading='gouraud')
-            f_batch_asst.append(freqsBatch[np.argmax(abs(asst_batch[:,:bLen]), axis=0)])
-            recoveredSignal[:bLen] = reconstruct(asst_batch, wav, freqsBatch)[:bLen]
+            f_batch_asst.append(freqsBatch[np.argmax(abs(asst_batch), #[:,:bLen]), 
+                                                     axis=0)])
+            recoveredSignal[:bLen] = reconstruct(asst_batch, config.C_psi, freqsBatch) #[:bLen]
         else:
             #batchAxes[b]
-            compositeAxes[b].pcolormesh(timeBatch, freqsBatch, np.abs(asst_batch[:,bPad:bLen+bPad]),
+            compositeAxes[b].pcolormesh(timeBatch, freqsBatch, np.abs(asst_batch), #[:,bPad:bLen+bPad]),
                                cmap='viridis', shading='gouraud')
-            f_batch_asst.append(freqsBatch[np.argmax(abs(asst_batch[:,bPad:bLen+bPad]), axis=0)])
-            recoveredSignal[b*bLen:(b+1)*bLen] = reconstruct(asst_batch, wav, freqsBatch)[bPad:bLen+bPad]
+            f_batch_asst.append(freqsBatch[np.argmax(abs(asst_batch),#[:,bPad:bLen+bPad]),
+                                                     axis=0)])
+            recoveredSignal[b*bLen:(b+1)*bLen] = reconstruct(asst_batch, config.C_psi, freqsBatch) #[bPad:bLen+bPad]
 
 
     f_batch_asst = np.array(f_batch_asst).flatten()
  
+    #_ = adaptive_sswt_miniBatch(batchSize=2*fs)
+
     fig, ax = plt.subplots(1)
     ax.plot(t[:len(sig)], f_sst, label='SSWT')
     ax.plot(t[:len(f_batch_asst)], f_batch_asst, label='A-SSWT (2s frame)')

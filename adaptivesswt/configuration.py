@@ -7,7 +7,7 @@ import numpy as np
 import pywt
 import multiprocessing as mp
 from dataclasses import dataclass, asdict, fields
-from typing import Tuple, Optional
+from typing import Tuple, Optional, Union
 
 @dataclass(init=True)
 class Configuration:
@@ -20,9 +20,8 @@ class Configuration:
     waveletBounds: Tuple[int,...] = (-6,6)
     threshold: float = 0.01
     numProc: int = mp.cpu_count()
-    custom_scales: np.ndarray = None
-    log: bool = False
-    pad: bool = False
+    custom_scales: Union[np.ndarray, None] = None
+    pad: int = 0
     plotFilt: bool = False
     wav: Optional[pywt.ContinuousWavelet] = None
     int_psi: Optional[np.ndarray] = None

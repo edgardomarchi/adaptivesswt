@@ -19,13 +19,32 @@ def getScale(freq: float, ts: float, wcf: float) -> float:
     -------
     float
         Scale corresponding to frequency 'freq'
-    """    
-    return wcf / (ts * freq)  #  1 / ((ts / wcf) * freq)
+    """
+    return wcf / (ts * freq)
+
+def getScales(freqs: np.ndarray, ts: float, wcf: float) -> np.ndarray:
+    """_summary_
+
+    Parameters
+    ----------
+    freqs : np.ndarray
+        _description_
+    ts : float
+        _description_
+    wcf : float
+        _description_
+
+    Returns
+    -------
+    np.ndarray
+        _description_
+    """
+    return getScale(freqs, ts, wcf)
 
 
-def calcScalesAndFreqs(ts: float, wcf: float, fmin: float, fmax: float, nv: float,
-                       log: bool=False) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-    """Calculates scales and frequencies for CWT within the closed interval [fmin, fmax]
+def calcScalesAndFreqs(ts: float, wcf: float, fmin: float, fmax: float, nv: int,
+                       endpoint: bool=False) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """Calculates scales and frequencies for CWT within the interval [fmin, fmax) or [fmin, fmax]
 
     Parameters
     ----------
@@ -36,11 +55,11 @@ def calcScalesAndFreqs(ts: float, wcf: float, fmin: float, fmax: float, nv: floa
     fmin : float
         Minimum frequency (included)
     fmax : float
-        Maximum frequency (included)
-    nv : float
+        Maximum frequency (included if endpoint is True)
+    nv : int
         Number of voices or frequencies
-    log : bool, optional
-        True if frequency spacing is logarithmic; linear if False, by default False
+    endpoint: bool, optional
+        True for include fmax within the interval, by default False
 
     Returns
     -------
@@ -48,15 +67,10 @@ def calcScalesAndFreqs(ts: float, wcf: float, fmin: float, fmax: float, nv: floa
         Returns tuple with (scales, frequencies, delta scales, delta frequencies)
     """
 
-    # Frequencies within clsed interval [fmin, fmax]
-    if log:
-        freqs = np.logspace(np.log10(fmin), np.log10(fmax), nv)
-    else:
-        freqs = np.linspace(fmin, fmax, nv)
+    # Frequencies within interval (fmin, fmax)
+    freqs = np.linspace(fmin, fmax, nv+2, endpoint=True)[1:-1]
 
-    getScales = lambda freqs : getScale(freqs, ts, wcf)
-
-    scales = getScales(freqs)
+    scales = getScales(freqs, ts, wcf)
 
     deltaFreqs, _ = getDeltaAndBorderFreqs(freqs) # dF0, dF1, ... , dF<nv+1> -> From low to high frecuencies
     deltaScales = getDeltaScales(scales)  # da<nv+1>, da<nv>, ... , da0 -> From high to low scales
@@ -75,8 +89,11 @@ def getDeltaScales(scales: np.ndarray) -> np.ndarray:
     np.ndarray
         Array of delta scales correspondig to 'scales'
     """
-    deltaScales = -1 * np.diff(scales, append=scales[-2])  # last delta equals previous since no info
-    deltaScales[-1] *= -1
+    if len(scales) > 1:
+        deltaScales = -1 * np.diff(scales, append=scales[-2])  # last delta equals previous since no info
+        deltaScales[-1] *= -1
+    else:
+        deltaScales = scales
     return deltaScales
 
 def getDeltaAndBorderFreqs(freqs: np.ndarray)-> Tuple[np.ndarray, np.ndarray]:
@@ -92,11 +109,18 @@ def getDeltaAndBorderFreqs(freqs: np.ndarray)-> Tuple[np.ndarray, np.ndarray]:
     Tuple[np.ndarray, np.ndarray]
         Tuple with delta frequecies and border frequencies
     """
-    deltaFreqs = np.diff(freqs, prepend=freqs[1])
-    deltaFreqs[0] *= -1
-    borderFreqs = np.concatenate((freqs-deltaFreqs/2,
-                                  np.array([freqs[-1]+deltaFreqs[-1]/2])))
-    deltaFreqs = np.diff(borderFreqs)
+    if len(freqs) > 1:
+        deltaFreqs = np.diff(freqs, prepend=freqs[1])
+        deltaFreqs[0] *= -1
+        borderFreqs = np.concatenate((freqs-deltaFreqs/2,
+                                      np.array([freqs[-1]+deltaFreqs[-1]/2])))
+        borderFreqs = np.where(borderFreqs < 0, 0, borderFreqs)  # delta frequency could be larger than frequency
+                                                                 # if the separation is relatively big, since border
+                                                                 # frequency could be negative -> saturate to 0
+        deltaFreqs = np.diff(borderFreqs)  # For non linear spacing this updates delta frequencies
+    else:
+        deltaFreqs, borderFreqs = freqs, freqs
+
     return deltaFreqs, borderFreqs
 
 def calcFilterLength(wav: pywt.ContinuousWavelet, scale: float):
@@ -125,11 +149,13 @@ if __name__=='__main__':
     fmin = 0.1
     fmax = 10
     nv = 10
-    log = False
 
     print(f'Sacle for {f}Hz with fs={fs} and wcf={wcf}: {getScale(f,1/fs,wcf)}', end='\n')
-    scales, freqs, deltaScales, deltaFreqs = calcScalesAndFreqs(1/fs, wcf, fmin, fmax, nv, log=log)
+    scales, freqs, deltaScales, deltaFreqs = calcScalesAndFreqs(1/fs, wcf, fmin, fmax, nv)
     print(f'Scales: {scales}')
     print(f'Frequencies: {freqs}')
     print(f'Delta Scales: {deltaScales}')
     print(f'Delta Frequencies: {deltaFreqs}')
+    newDelta, newBorder = getDeltaAndBorderFreqs(freqs)
+    print(f'New Delta Frequencies: {newDelta}')
+    print(f'Border Frequencies: {newBorder}')

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 import logging
-logger = logging.getLogger()
+logger = logging.getLogger(__name__)
 
 import numpy as np
 import scipy.signal as sp
@@ -23,13 +23,12 @@ def sswt(signal: np.ndarray,
          threshold: float = 1,
          wav: pywt.ContinuousWavelet=pywt.ContinuousWavelet('cmor1-0.5'),
          custom_scales: np.ndarray=None,
-         log: bool=False,
-         pad: bool=False,
-         numProc: int = 4,
-         plotFilt: bool=True,
+         pad: int=0,
+         numProc: int = mp.cpu_count(),
+         plotFilt: bool=False,
          C_psi: complex = None,
          **kwargs
-         ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+         ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Calculates the Synchrosqueezed Wavelet Transform.
 
     Parameters
@@ -52,10 +51,9 @@ def sswt(signal: np.ndarray,
         Number of used sub-processes, by default 4
     custom_scales : np.ndarray, optional
         Custom scales for the WT, by default None
-    log : bool, optional
-        If True a logarithmic distribution of frequencies is used, linear if False, by default False
-    pad : bool, optional
-        If True adds padding for overlap-and-add applications, by default False
+    pad : int, optional
+        Number of padding samples for overlap-and-add applications,
+        if negative calculated automatically based on wavelet max length, by default 0
     plotFilt : bool, optional
         Wavelet filters spectrum is ploted if True (affects performance), by default False
     C_psi: complex, optional
@@ -64,8 +62,8 @@ def sswt(signal: np.ndarray,
     Returns
     -------
     tuple
-        (St:np.ndarray, Wt:np.ndarray, freqs:np.ndarray, scales:np.ndaray, tail:np.ndarray)
-        Matrices with SST, WT, analysis frequencies, scales used and signal tail for overlap (if pad is False tail is None).
+        (St:np.ndarray, freqs:np.ndarray, tail:np.ndarray)
+        Matrix with SST, array with analysis frequencies, and signal tail for overlap (tail is empty if pad is False).
     """
     
     #####################
@@ -75,24 +73,19 @@ def sswt(signal: np.ndarray,
 
     #### Scales ####
     if custom_scales is None:
-        scales, freqs, deltaScales, deltaFreqs = calcScalesAndFreqs(ts, wcf, minFreq, maxFreq, numFreqs, log)
+        scales, freqs, deltaScales, deltaFreqs = calcScalesAndFreqs(ts, wcf, minFreq, maxFreq, numFreqs, endpoint=True)
     else:
         scales = custom_scales
         logger.debug('Using custom scales')
         
-        deltaScales = getDeltaScales(scales)
-        # deltaScales = -1*np.diff(scales, prepend=scales[1]) # last delta is equal to the previous
-        # deltaScales[0]*=-1                                  #  "
-    
+        deltaScales = getDeltaScales(scales)   
+        
     logger.debug('Scales: \n%s\n', scales)
     logger.debug('Delta scales: \n%s\n', deltaScales)
 
-    maxWavLen = 0 
     # padding for streaming:
-    if pad:
-        maxWavLen = calcFilterLength(wav, scales.max())
-        signal = np.pad(signal, (0, maxWavLen), mode='constant')
-        print(f'Max wav len = {maxWavLen}')     
+    maxWavLen = calcFilterLength(wav, scales.max()) if (pad < 0) else pad 
+    signal = np.pad(signal, (0, maxWavLen), mode='constant')
 
     #### CWT ####
     if plotFilt: plotFilters(wav, scales, ts, signal)
@@ -101,19 +94,19 @@ def sswt(signal: np.ndarray,
 
     #### SSWT ####
     numbaParallel = kwargs.get('numbaParallel', False)
-    St = synchrosqueeze(cwt_matr, freqs, ts, scales, deltaScales, log, threshold, numProc, numbaParallel)
+    St = synchrosqueeze(cwt_matr, freqs, ts, scales, deltaScales, threshold, numProc, numbaParallel)
     if pad:
         assert C_psi is not None, 'Atention: C_psi is needed if pad is True'
         tail = reconstruct(St[:,-maxWavLen:], C_psi, freqs)
         lastIdx = -maxWavLen
     else:
-        tail, lastIdx = None, None
+        tail, lastIdx = np.array([]), None
 
-    return St[:,:lastIdx], cwt_matr[:,:lastIdx], freqs, scales, tail
+    return St[:,:lastIdx], freqs, tail
 
 
 def synchrosqueeze(cwt_matr: np.ndarray, freqs: np.ndarray, ts: float, scales: np.ndarray,
-                   deltaScales: np.ndarray, log: bool, threshold: float,
+                   deltaScales: np.ndarray, threshold: float,
                    numProc: int, numbaParallel: bool = False):
 
     scaleExp = -3/2
@@ -158,8 +151,8 @@ def synchrosqueeze(cwt_matr: np.ndarray, freqs: np.ndarray, ts: float, scales: n
     if numbaParallel:
         _freqSearchNumbaParallel(deltaFreqs, borderFreqs, aScale, wab, cwt_matr, St)
     else:
-        jobs = mp.JoinableQueue()
-        results = mp.Queue()
+        jobs:mp.JoinableQueue = mp.JoinableQueue()
+        results:mp.Queue = mp.Queue()
 
         processes = create_processes(deltaFreqs, borderFreqs, aScale, jobs, results, numProc)
         chunkSize = add_jobs(cwt_matr, wab, numProc, jobs)
@@ -206,7 +199,6 @@ def freqMap(deltaFreqs: np.ndarray, borderFreqs: np.ndarray, aScale: np.ndarray,
     while True:
         job, tr_matr, wab = jobs.get()
         St = np.zeros_like(tr_matr)
-    
         _freqSearch(deltaFreqs, borderFreqs, aScale, wab, tr_matr, St)
             
         results.put((job, St))
@@ -266,8 +258,8 @@ def reconstructCWT(cwt: np.ndarray, wav: pywt.ContinuousWavelet,
 
 
 if __name__=='__main__':
-    from configuration import Configuration
-    import utils.signal_utils as generator
+    from .configuration import Configuration
+    from .utils import signal_utils as generator
 
     plt.close('all')
     logging.basicConfig(filename='sswt.log', filemode='w',
@@ -308,14 +300,16 @@ if __name__=='__main__':
         waveletBounds=(-3,3),
         threshold=signal.max()/(100),
         numProc=4,
-        log=False,
         plotFilt=False)
 
-    wav = config.wav  # pywt.ContinuousWavelet(f'cmor{config.wbw}-{config.wcf}')
-    #wav.lower_bound, wav.upper_bound = config.waveletBounds
+    wav = config.wav
+    
+    config.pad = 256
 
-    config.pad = True
-    sst, cwt, freqs, scales, tail = sswt(signal, **config.asdict())
+    scales, _, _, _ = calcScalesAndFreqs(ts, config.wcf, config.minFreq, config.maxFreq, config.numFreqs, endpoint=True)
+    cwt, freqsCWT = pywt.cwt(signal, scales, config.wav, sampling_period=ts, method='fft')
+
+    sst, freqs, tail = sswt(signal, **config.asdict())
 
     # fig = plt.figure("CWT")
     # ax = fig.add_subplot(111, projection='3d')
@@ -351,7 +345,7 @@ if __name__=='__main__':
 
     import timeit
     passes = 2
-    config.pad = False
+    config.pad = 0
     time = timeit.timeit("sswt(signal, **config.asdict())", globals=globals(), number=passes)
     print(f'Excecution time for {passes} passes and {config.numProc} processes = {time}s')
     print(f'Execution time per signal second = {time / stopTime / passes} s/s')
