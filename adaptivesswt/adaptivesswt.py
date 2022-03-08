@@ -13,133 +13,67 @@ from typing import Tuple
 from .configuration import Configuration
 
 from .utils import signal_utils as generator
-from .utils.freq_utils import getDeltaAndBorderFreqs, getScales, calcScalesAndFreqs
+from .utils.freq_utils import getDeltaAndBorderFreqs, calcScalesAndFreqs, getScale
 from .sswt import sswt, reconstruct, reconstructCWT
 
 
-def calcScales(ts:float, wcf:float, nvPerBand:list, flo:float, fhi:float,
-               freqBands:list=None) -> np.ndarray:
-    """Calcula las escalas a utilizar en la WT
+def _getFreqsPerBand(nvPerBand:np.ndarray, flo:float, fhi:float,
+                     freqBands:np.ndarray=None) -> np.ndarray:
+    """Returns frequencies per band according to the number of voices for each one.
 
     Parameters
     ----------
-    ts : float
-        Período de muestreo
-    wcf : float
-        Frecuencia central de la wavelet en relación a 'fs'
-    nvPerBand : list
-        Número de voces por banda
-    flo : float
-        Frecuencia mínima
-    fhi : float
-        Frecuencia máxima
-    freqBands : list, optional
-        Frecuencias límite entre bandas, by default None
-
-    Returns
-    -------
-    np.ndarray
-        Escalas para utilizar en la CWT de menor a mayor (i.e. de (fhi a flo])
-    """
-    if freqBands is None:
-        freqs = np.linspace(flo, fhi, len(nvPerBand)+1, endpoint=True)
-    else:
-        assert len(freqBands) == len(nvPerBand)+1,\
-            "Error: La especificación de bandas y numero de voces no es coherente!"
-        freqs = freqBands
-    scales = np.zeros(np.array(nvPerBand).sum())
-    nv = 0
-    for i in range(len(nvPerBand)):
-        bScales, _, _, _ = calcScalesAndFreqs(ts, wcf, freqs[i], freqs[i+1], nvPerBand[i])
-        scales[nv:nv+nvPerBand[i]] = bScales
-        nv += nvPerBand[i]
-    return scales
-
-def calcFreqs(ts:float, wcf:float, nvPerBand:np.ndarray, flo:float, fhi:float,
-              freqBands:np.ndarray=None) -> np.ndarray:
-    """Calcula las freqs a utilizar en la WT
-
-    Parameters
-    ----------
-    ts : float
-        Período de muestreo
-    wcf : float
-        Frecuencia central de la wavelet en relación a 'fs'
     nvPerBand : np.ndarray
-        Número de voces por banda
+        Number of voices per band
     flo : float
-        Frecuencia mínima
+        Minimum frequency
     fhi : float
-        Frecuencia máxima
+        Maximum frequency
     freqBands : np.ndarray, optional
-        Frecuencias límite entre bandas, by default None
+        Limit frequencies between bands, by default None
 
     Returns
     -------
     np.ndarray
-        Escalas para utilizar en la CWT de menor a mayor (i.e. de (fhi a flo])
+        Frequencies to use with CWT ordered from flo to fhi
     """
     if freqBands is None:
         freqs = np.linspace(flo, fhi, len(nvPerBand)+1, endpoint=True)
     else:
         assert len(freqBands) == len(nvPerBand)+1,\
-            "Error: La especificación de bandas y numero de voces no es coherente!"
+            "ERROR: Number of frequency bands is not coherent with the number of voices per band!"
         freqs = freqBands
     newFreqs = np.zeros(np.array(nvPerBand).sum())
     nv = 0
     numBands = len(nvPerBand)
     for i in range(numBands):
-        endpoint = True if i == numBands else False
-        _, bFreqs, _, _ = calcScalesAndFreqs(ts, wcf, freqs[i], freqs[i+1], nvPerBand[i], endpoint)
+        bFreqs = np.linspace(freqs[i], freqs[i+1], nvPerBand[i]+2, endpoint=True)[1:-1]
         newFreqs[nv:nv+nvPerBand[i]] = bFreqs
         nv += nvPerBand[i]
     return newFreqs
 
-# No usada?
-# def calcBandScales(fs:float, wcf:float, numFreqs:int,
-#                    flo:float, fhi:float, log:bool=False) -> np.ndarray:
-#     """Calcula las escalas para la WT dentro de una banda determinada.
 
-#     Parameters
-#     ----------
-#     fs : float
-#         Frecuencia de muestreo
-#     wcf : float
-#         Frecuencia central de la wavelet en realción a 'fs'
-#     numFreqs : int
-#         Cantidad de frecuencias dentro de la banda
-#     flo : float
-#         Frecuencia mínima
-#     fhi : float
-#         Frecuencia máxima
-#     log : bool
-#         True para separación logaritmica de frecuencias
+def _proportional(nv: int, spectrum: np.ndarray) -> np.ndarray:
+    """Assign nv frequencies proportionally to the spectrum using Hagenbach-Bischoff quota
 
-#     Returns
-#     -------
-#     np.ndarray
-#         Escalas para la banda de menor a mayor (i.e. de (fhi a flo])
-#     """
-#     minScale = getScale(fhi, 1/fs, wcf)
-#     maxScale = getScale(flo, 1/fs, wcf)
-#     if log:
-#         return np.logspace(np.log10(minScale), np.log10(maxScale), numFreqs,
-#                            endpoint=False)
-#     return np.linspace(minScale, maxScale, numFreqs, endpoint=False)
-
-
-def proportional(nv: int, spectrum: np.ndarray) -> np.ndarray:
-    """assign n seats proportionaly to votes using Hagenbach-Bischoff quota
-    :param nseats: int number of seats to assign
-    :param votes: iterable of int or float weighting each party
-    :result: list of ints seats allocated to each party
+    Parameters
+    ----------
+    nv : int
+        Number of frequencies to assign
+    spectrum : np.ndarray 
+        Array of float weighting each band
+    
+    Returns
+    -------
+    np.ndarray
+        Array of ints seats allocated to each band
     """
     quota = sum(spectrum) / (1 + nv)
     frac = np.array([freq/quota for freq in spectrum])
     res = np.array([int(f) for f in frac])
-    n = nv - res.sum() # number of wavelets remaining to allocate
+    n = nv - res.sum() # number of frequencies remaining to allocate
     if n==0: return res #done
-    if n<0: return [min(x,nv) for x in res] # see siamii's comment
+    if n<0: return [min(x,nv) for x in res]
     # give the remaining wavelets to the n frequencies with the largest remainder
     remainders = [ai-bi for ai,bi in zip(frac,res)]
     limit=sorted(remainders,reverse=True)[n-1]
@@ -152,38 +86,38 @@ def proportional(nv: int, spectrum: np.ndarray) -> np.ndarray:
     assert False #should never happen
 
 
-def calcNumWavelets(spectrum:np.ndarray, freqs:np.ndarray, method='proportional', thrsh=1/20,
+def _calcNumWavelets(spectrum:np.ndarray, freqs:np.ndarray, method='proportional', thrsh=1/20,
                     plotBands:bool=True) -> np.ndarray:
-    """Calcula la cantidad de wavelets por banda en función del espectro
+    """Calculates the number of frecuencies to allocate within each band.
 
     Parameters
     ----------
     spectrum : np.ndarray
-        Espectro de la señal a analizar
+        Spectrum magnitude of the signal
     freqs : np.ndarray
-        Eje de frecuencias
-    method : str
-        Método de reasignación de frecuencias: 'proportional', 'threshold'
-    plotBands : bool
-        Indica si plotear el espectro y bandas asignadas
+        Frequencies (only for plotting)
+    method : {'proportional', 'threshold'}, optional
+        Frequency reallocation method
+    plotBands : bool, optional
+        If True, plots magnitude of wavelet filter's frequency response
 
     Returns
     -------
     np.ndarray
-        Cantidad de wavelets a asignar por banda
+        Number of assigned frequencies per band
     """
     if method=='proportional':
-        numWavelets = proportional(len(spectrum), spectrum)
+        numWavelets = _proportional(len(spectrum), spectrum)
     elif method=='threshold':
         numWavelets = np.where(spectrum > (spectrum.max() * thrsh), 1, 0)
         numUnusedWavelets = len(spectrum) - numWavelets.sum()  
-        numWavelets += proportional(numUnusedWavelets, spectrum)
+        numWavelets += _proportional(numUnusedWavelets, spectrum)
     else:  # For now, proportional is the default
-        numWavelets = proportional(len(spectrum), spectrum)
+        numWavelets = _proportional(len(spectrum), spectrum)
 
     rem = len(spectrum) - numWavelets.sum()
-    logger.debug('Frecuencias centrales:\n %s', freqs)
-    logger.debug('Resto: %d', rem)
+    logger.debug('Center frequencies: \n %s', freqs)
+    logger.debug('Remainder: %d', rem)
 
     if plotBands:
         fig, axes = plt.subplots(2,1,sharex=True)
@@ -206,7 +140,7 @@ def adaptive_sswt(signal :np.ndarray, iters :int=2, method :str='proportional',
         Signal to analyze
     iters : int, optional
         Maximum number of adaptation iterations, by default 2
-    method: str, optional
+    method: {'proportional','threshold'}, optional
         Frequency reallocation method. Either 'threshold' or 'proportional', by default 'proportional'.
     thrsh: float, optional
         Detection threshold for 'threshold' method, by default '1/20'.
@@ -217,60 +151,47 @@ def adaptive_sswt(signal :np.ndarray, iters :int=2, method :str='proportional',
 
     Returns
     -------
-    tuple
-        (St:np.ndarray, freqs:np.ndarray, tail: np.ndarray) Matrices with ST transform and \
-            and vectors containing analysis frequencies, and tail from padding respectively.
+    St : np.ndarray
+        Matrix with the Adaptive Synchrosqueezing Transform
+    freqs : np.ndarray
+        Array with analysis frequencies
+    tail : np.ndarray
+        Reconstructed signal tail from padding
     """
     minimumFreq = 1 / (kwargs['ts'] * len(signal))
     logger.debug("Minimum possible frequency for this signal: %s\n", minimumFreq)
 
     # Initial transform:
-    sst, cwt, freqs, scales_adp, tail = sswt(signal, **kwargs)
+    sst, freqs, tail = sswt(signal, **kwargs)
     # Adaptation loop
     for i in range(iters):
         logger.debug("******************* Iteration: %d ********************\n", i)
-        deltaFreqs, limits = getDeltaAndBorderFreqs(freqs)
+        _, limits = getDeltaAndBorderFreqs(freqs)
         if otl:
             spectrum = abs(cwt).sum(axis=1)
         else:
             spectrum = abs(sst).sum(axis=1)
+        
+        spectrum /= spectrum.max()
  
-        numWavelets = calcNumWavelets(spectrum, freqs, method, thrsh, plotBands=False)
+        numWavelets = _calcNumWavelets(spectrum, freqs, method, thrsh, plotBands=False)
         
         logger.debug("Number of frequncies assigned per band:\n%s\n", numWavelets)
         logger.debug("Center frequencies per band:\n%s\n", freqs)
-        #limits = (freqs[:-1] + freqs[1:]) / 2
         logger.debug("Limits between bands:\n%s\n", limits)
 
+        # When there is one frequency per band, equilibrium is found:
         if (numWavelets==np.ones_like(freqs)).all():
             logger.debug('\nEquilibrium found in %d iterations.\n',i)
             break 
 
-        #freqBands = np.concatenate((np.array([2*freqs[0]-limits[0]]),
-        #                            limits,
-        #                            np.array([2*freqs[-1]-limits[-1]]))) 
-        freqBands = limits
-        # Si la segunda frecuencia está muy alejada de la primera el límite entre ellas
-        # puede ser más grande que 2 veces la primer frecuencia.
-        #freqBands = np.where(freqBands >= minimumFreq, freqBands, minimumFreq)
-        #freqBands = np.where(freqBands <= maximumFreq, freqBands, maximumFreq)
-
-        #logger.debug("---- Frecuncias límites entre bandas incluyendo extremos:\n %s\n----------", freqBands)
-
-        freqs_adp = calcFreqs(kwargs['ts'], kwargs['wcf'], numWavelets,
-                              kwargs['minFreq'], kwargs['maxFreq'],
-                              freqBands=freqBands)
-
-        #getScales = lambda freqs : getScale(freqs, ts, wcf)
-        scales_adp = getScales(freqs_adp, ts, wcf)
-    
-        # scales_adp = calcScales(kwargs['ts'], kwargs['wcf'], numWavelets,
-        #                         kwargs['minFreq'], kwargs['maxFreq'],
-        #                         freqBands=freqBands, log=kwargs['log'])
+        freqs_adp = _getFreqsPerBand(numWavelets, kwargs['minFreq'], kwargs['maxFreq'],
+                                     freqBands=limits)
+        scales_adp = getScale(freqs_adp, ts, wcf)
 
         logger.debug("Frequencies to use with CWT:\n%s\n", freqs_adp)
         kwargs['custom_scales'] = scales_adp
-        sst, cwt, freqs, scales_adp, tail = sswt(signal, **kwargs)
+        sst, freqs, tail = sswt(signal, **kwargs)
         if not sst.any():
             logger.warning('ATENTION! SSWT contains only 0s')
         
@@ -407,9 +328,9 @@ if __name__=='__main__':
     spAx.set_ylim([minFreq,maxFreq])
 
     # sig=sp.hilbert(sig)
-    scales, _, _, _ = calcScalesAndFreqs(ts, config.wcf, config.minFreq, config.maxFreq, config.numFreqs, endpoint=True)
+    scales, _, _, _ = calcScalesAndFreqs(ts, config.wcf, config.minFreq, config.maxFreq, config.numFreqs)
     cwt, freqsCWT = pywt.cwt(sig, scales, config.wav, sampling_period=ts, method='fft')
-    sst, _, freqs, _, tail = sswt(sig, **config.asdict())
+    sst, freqs, tail = sswt(sig, **config.asdict())
  
     # fig = plt.figure("SSWT")
     # ax = fig.add_subplot(111, projection='3d')

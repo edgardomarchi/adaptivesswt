@@ -1,9 +1,9 @@
 import pywt
 import numpy as np
-from typing import Tuple
+from typing import Tuple, Union
 
 
-def getScale(freq: float, ts: float, wcf: float) -> float:
+def getScale(freq: Union[float, np.ndarray], ts: float, wcf: float) -> Union[float, np.ndarray]:
     """Returns 'a' scale asociated to 'f' frequency
 
     Parameters
@@ -22,28 +22,9 @@ def getScale(freq: float, ts: float, wcf: float) -> float:
     """
     return wcf / (ts * freq)
 
-def getScales(freqs: np.ndarray, ts: float, wcf: float) -> np.ndarray:
-    """_summary_
 
-    Parameters
-    ----------
-    freqs : np.ndarray
-        _description_
-    ts : float
-        _description_
-    wcf : float
-        _description_
-
-    Returns
-    -------
-    np.ndarray
-        _description_
-    """
-    return getScale(freqs, ts, wcf)
-
-
-def calcScalesAndFreqs(ts: float, wcf: float, fmin: float, fmax: float, nv: int,
-                       endpoint: bool=False) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+def calcScalesAndFreqs(ts: float, wcf: float, fmin: float, fmax: float,
+                       nv: int) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """Calculates scales and frequencies for CWT within the interval [fmin, fmax) or [fmin, fmax]
 
     Parameters
@@ -58,8 +39,6 @@ def calcScalesAndFreqs(ts: float, wcf: float, fmin: float, fmax: float, nv: int,
         Maximum frequency (included if endpoint is True)
     nv : int
         Number of voices or frequencies
-    endpoint: bool, optional
-        True for include fmax within the interval, by default False
 
     Returns
     -------
@@ -70,11 +49,11 @@ def calcScalesAndFreqs(ts: float, wcf: float, fmin: float, fmax: float, nv: int,
     # Frequencies within interval (fmin, fmax)
     freqs = np.linspace(fmin, fmax, nv+2, endpoint=True)[1:-1]
 
-    scales = getScales(freqs, ts, wcf)
+    scales = getScale(freqs, ts, wcf)
 
-    deltaFreqs, _ = getDeltaAndBorderFreqs(freqs) # dF0, dF1, ... , dF<nv+1> -> From low to high frecuencies
-    deltaScales = getDeltaScales(scales)  # da<nv+1>, da<nv>, ... , da0 -> From high to low scales
-    return scales, freqs, deltaScales, deltaFreqs
+    deltaFreqs, _ = getDeltaAndBorderFreqs(freqs)        # dF0, dF1, ... , dF<nv+1> -> From low to high frecuencies
+    deltaScales = getDeltaScales(scales)  # type: ignore # da<nv+1>, da<nv>, ... , da0 -> From high to low scales
+    return scales, freqs, deltaScales, deltaFreqs  # type: ignore  # safe since freqs is an array thus scales will be array
 
 def getDeltaScales(scales: np.ndarray) -> np.ndarray:
     """Calculates delta Scales for SSWT
@@ -150,7 +129,7 @@ if __name__=='__main__':
     fmax = 10
     nv = 10
 
-    print(f'Sacle for {f}Hz with fs={fs} and wcf={wcf}: {getScale(f,1/fs,wcf)}', end='\n')
+    print(f'Scale for {f}Hz with fs={fs} and wcf={wcf}: {getScale(f,1/fs,wcf)}', end='\n')
     scales, freqs, deltaScales, deltaFreqs = calcScalesAndFreqs(1/fs, wcf, fmin, fmax, nv)
     print(f'Scales: {scales}')
     print(f'Frequencies: {freqs}')

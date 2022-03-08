@@ -26,14 +26,14 @@ class Configuration:
     wav: Optional[pywt.ContinuousWavelet] = None
     int_psi: Optional[np.ndarray] = None
     int_step: Optional[float] = None
-    C_psi: Optional[complex] = None
+    C_psi: complex = 1
 
     def __post_init__(self):
         self.wav = pywt.ContinuousWavelet(f'cmor{self.wbw}-{self.wcf}')
         self.wav.lower_bound, self.wav.upper_bound = self.waveletBounds
         self.int_psi, x = pywt.integrate_wavelet(self.wav)
         #self.int_step = x[1]-x[0]
-        self.C_psi = np.pi * np.conjugate(self.int_psi[np.argmin(np.abs(x))])
+        self.C_psi: complex = np.pi * np.conjugate(self.int_psi[np.argmin(np.abs(x))])
 
         logger.info('Configuration created: %s\n',self)
 

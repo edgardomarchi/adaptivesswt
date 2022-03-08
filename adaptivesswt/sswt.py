@@ -57,13 +57,13 @@ def sswt(signal: np.ndarray,
     plotFilt : bool, optional
         Wavelet filters spectrum is ploted if True (affects performance), by default False
     C_psi: complex, optional
-        Reconstruction coeficient. Needed if pad is True.
+        Reconstruction coeficient. Needed if pad is different from 0.
 
     Returns
     -------
     tuple
         (St:np.ndarray, freqs:np.ndarray, tail:np.ndarray)
-        Matrix with SST, array with analysis frequencies, and signal tail for overlap (tail is empty if pad is False).
+        Matrix with SST, array with analysis frequencies, and signal tail for overlap (tail is empty if pad is 0).
     """
     
     #####################
@@ -73,7 +73,7 @@ def sswt(signal: np.ndarray,
 
     #### Scales ####
     if custom_scales is None:
-        scales, freqs, deltaScales, deltaFreqs = calcScalesAndFreqs(ts, wcf, minFreq, maxFreq, numFreqs, endpoint=True)
+        scales, freqs, deltaScales, _ = calcScalesAndFreqs(ts, wcf, minFreq, maxFreq, numFreqs)
     else:
         scales = custom_scales
         logger.debug('Using custom scales')
@@ -95,8 +95,8 @@ def sswt(signal: np.ndarray,
     #### SSWT ####
     numbaParallel = kwargs.get('numbaParallel', False)
     St = synchrosqueeze(cwt_matr, freqs, ts, scales, deltaScales, threshold, numProc, numbaParallel)
-    if pad:
-        assert C_psi is not None, 'Atention: C_psi is needed if pad is True'
+    if pad != 0:
+        assert C_psi is not None, 'Atention: C_psi is needed if pad is != 0'
         tail = reconstruct(St[:,-maxWavLen:], C_psi, freqs)
         lastIdx = -maxWavLen
     else:
@@ -154,8 +154,8 @@ def synchrosqueeze(cwt_matr: np.ndarray, freqs: np.ndarray, ts: float, scales: n
         jobs:mp.JoinableQueue = mp.JoinableQueue()
         results:mp.Queue = mp.Queue()
 
-        processes = create_processes(deltaFreqs, borderFreqs, aScale, jobs, results, numProc)
-        chunkSize = add_jobs(cwt_matr, wab, numProc, jobs)
+        processes = _create_processes(deltaFreqs, borderFreqs, aScale, jobs, results, numProc)
+        chunkSize = _add_jobs(cwt_matr, wab, numProc, jobs)
     
         try:
             jobs.join()
@@ -171,11 +171,11 @@ def synchrosqueeze(cwt_matr: np.ndarray, freqs: np.ndarray, ts: float, scales: n
     return St
 
 
-def create_processes(deltaFreqs, borderFreqs, aScale,
+def _create_processes(deltaFreqs, borderFreqs, aScale,
                      jobs, results, concurrency):
     processes = []
     for i in range(concurrency):
-        processes.append(mp.Process(target=freqMap,
+        processes.append(mp.Process(target=_freqMap,
                          args=(deltaFreqs, borderFreqs, aScale, jobs, results)))
         processes[i].daemon = True
         processes[i].start()
@@ -183,7 +183,7 @@ def create_processes(deltaFreqs, borderFreqs, aScale,
     return processes
 
 
-def add_jobs(cwtmatr, wab, numJobs, jobs):
+def _add_jobs(cwtmatr, wab, numJobs, jobs):
     chunkSize = int(cwtmatr.shape[1]//numJobs)
     for job in range(numJobs):
         cwtmatrChunk, wabChunk = (cwtmatr[:,job*chunkSize:(job+1)*chunkSize],
@@ -193,7 +193,7 @@ def add_jobs(cwtmatr, wab, numJobs, jobs):
     return chunkSize
 
 
-def freqMap(deltaFreqs: np.ndarray, borderFreqs: np.ndarray, aScale: np.ndarray,
+def _freqMap(deltaFreqs: np.ndarray, borderFreqs: np.ndarray, aScale: np.ndarray,
             jobs: mp.JoinableQueue, results: mp.Queue):
     
     while True:
@@ -306,7 +306,7 @@ if __name__=='__main__':
     
     config.pad = 256
 
-    scales, _, _, _ = calcScalesAndFreqs(ts, config.wcf, config.minFreq, config.maxFreq, config.numFreqs, endpoint=True)
+    scales, _, _, _ = calcScalesAndFreqs(ts, config.wcf, config.minFreq, config.maxFreq, config.numFreqs)
     cwt, freqsCWT = pywt.cwt(signal, scales, config.wav, sampling_period=ts, method='fft')
 
     sst, freqs, tail = sswt(signal, **config.asdict())
