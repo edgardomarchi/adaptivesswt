@@ -73,7 +73,7 @@ def _proportional(nv: int, spectrum: np.ndarray) -> np.ndarray:
     res = np.array([int(f) for f in frac])
     n = nv - res.sum() # number of frequencies remaining to allocate
     if n==0: return res #done
-    if n<0: return [min(x,nv) for x in res]
+    if n<0: return np.array([min(x,nv) for x in res])
     # give the remaining wavelets to the n frequencies with the largest remainder
     remainders = [ai-bi for ai,bi in zip(frac,res)]
     limit=sorted(remainders,reverse=True)[n-1]
@@ -187,7 +187,7 @@ def adaptive_sswt(signal :np.ndarray, iters :int=2, method :str='proportional',
 
         freqs_adp = _getFreqsPerBand(numWavelets, kwargs['minFreq'], kwargs['maxFreq'],
                                      freqBands=limits)
-        scales_adp = getScale(freqs_adp, ts, wcf)
+        scales_adp = getScale(freqs_adp, kwargs['ts'], kwargs['wcf'])
 
         logger.debug("Frequencies to use with CWT:\n%s\n", freqs_adp)
         kwargs['custom_scales'] = scales_adp
