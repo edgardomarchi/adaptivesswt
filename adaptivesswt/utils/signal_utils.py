@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+from typing import Tuple
+
 import numpy as np
 from scipy.signal import chirp as spchirp
-from typing import Tuple
+
 
 def testSig(t :np.ndarray) -> np.ndarray:
     """Señal de prueba como en "The Synchrosqueezing Transform: A EMD like tool" - Deaubechies.
@@ -47,7 +49,7 @@ def hbSig(t :np.ndarray, A: float=1,
     Returns
     -------
     np.ndarray
-        Muestras de la señal        
+        Muestras de la señal
     """
     return A * (ab * np.sin(2*np.pi*fb*t) + ah * np.sin(2*np.pi*fh*t))
 
@@ -72,11 +74,11 @@ def pulsesSig(t: np.ndarray, pw: float=2e-9, prf: float=7.85e6) -> np.ndarray:
     scanLen = int(tScan / t[1])
     nScans = int(t.max() / tScan)
     tScans = t[:(nScans * scanLen)].reshape((nScans, scanLen))
-    pulseStopTimes = tScans[:, int(pw / t[1])] 
+    pulseStopTimes = tScans[:, int(pw / t[1])]
     return (tScans < pulseStopTimes[:, None]).flatten()
 
 def pulsePosModSig(t: np.ndarray, pw: float=2e-9, prf: float=7.85e6,
-                   m:float=19) -> np.ndarray:
+                   m:int=19) -> np.ndarray:
     """Señal pulsante modulada en posición con una senoidal
 
     Parameters
@@ -192,7 +194,7 @@ def quadraticChirp(t: np.ndarray, fmin: float, fmax: float) -> Tuple[np.ndarray,
                       vertex_zero=False)
 
 def crossChrips(t: np.ndarray, fmin: float, fmax: float, N: int) -> Tuple:
-    
+
     nPoints = len(t)
     f_init = np.linspace(fmin, fmax, N)
     f_end = np.linspace(fmax, fmin, N)

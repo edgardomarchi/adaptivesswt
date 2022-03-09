@@ -18,25 +18,25 @@ keywords = ["Synchrosqueezing", "Wavelet", "Transform", "DSP"
 
 [tool.poetry.dependencies]
 
-python = "^3.7"
+python = "^3.9"
 pywavelets = "^1.2"
 numpy = "^1.20"
 scipy = "*"
 numba = "*"
+matplotlib = "*"
 
 [tool.poetry.dev-dependencies]
 
 # Formatters
-black = "=19.3b0"
-isort = "=4.3.4"
+isort = "^5"   # A Python utility / library to sort imports
 
 # Linters
 mypy = "*"
 pydocstyle = "*"
-pylint = "^2.0"
+pylint = "^2"
 
 # Testing
-pytest = "^5.0"
+pytest = "^5"
 pytest-cov = "*"
 pytest-describe = "*"
 pytest-expecter = "*"
@@ -56,6 +56,7 @@ pyinstaller = "*"
 sniffer = "*"
 pyinotify = "*"
 bump2version = "*"
+cookiecutter = "*"
 
 [tool.poetry.scripts]
 
@@ -63,12 +64,15 @@ bump2version = "*"
 
 [tool.black]
 
-target-version = ["py37", "py38"]
+target-version = ["py38"]
 skip-string-normalization = true
 
-# [[tool.poetry.source]]
-# name = "dilbert"
-# url = "https://pypi.dilbert.inti.gob.ar/"
+[tool.isort]
+profile = "black"
+
+#[[tool.poetry.source]]
+#name = "dilbert"
+#url = "https://pypi.dilbert.inti.gob.ar/"
 
 [build-system]
 requires = ["poetry>=1.0",
@@ -77,4 +81,3 @@ requires = ["poetry>=1.0",
 ]
 
 build-backend = "poetry.masonry.api"
-
