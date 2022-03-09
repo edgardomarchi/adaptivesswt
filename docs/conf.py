@@ -20,7 +20,7 @@ sys.path.insert(0, os.path.abspath('..'))
 
 project = 'adaptivesswt'
 copyright = '2021, Edgardo Marchi'
-author = ['Edgardo Marchi','Marcos Cervetto']
+author = 'Edgardo Marchi'
 
 # The full version, including alpha/beta/rc tags
 release = '0.1.0'
@@ -35,7 +35,7 @@ extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.coverage',
     'sphinx.ext.napoleon',
-    'm2r',
+    'm2r2',
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -46,7 +46,7 @@ templates_path = ['_templates']
 #
 # This is also used if you do content translation via gettext catalogs.
 # Usually you set "language" from the command line for these cases.
-language = 'es'
+language = 'en'
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.

@@ -18,7 +18,7 @@ keywords = ["Synchrosqueezing", "Wavelet", "Transform", "DSP"
 
 [tool.poetry.dependencies]
 
-python = "^3.7"
+python = "^3.9"
 pywavelets = "^1.2"
 numpy = "^1.20"
 scipy = "*"
@@ -64,7 +64,7 @@ cookiecutter = "*"
 
 [tool.black]
 
-target-version = ["py37", "py38"]
+target-version = ["py38"]
 skip-string-normalization = true
 
 [tool.isort]
@@ -81,4 +81,3 @@ requires = ["poetry>=1.0",
 ]
 
 build-backend = "poetry.masonry.api"
-

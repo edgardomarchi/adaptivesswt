@@ -1,12 +1,17 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-import numpy as np
+from typing import List, Tuple
+
 import matplotlib.pyplot as plt
+import numpy as np
+from matplotlib.axis import Axis
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 from pywt import ContinuousWavelet, integrate_wavelet
 
 
-def plotFilters(wav: ContinuousWavelet, scales: np.ndarray,
-                 ts: float, signal: np.ndarray):
+def plotFilters(
+    wav: ContinuousWavelet, scales: np.ndarray, ts: float, signal: np.ndarray
+):
     """Plotea los espectros de las wavelets seleccionadas.
 
     Parameters
@@ -35,11 +40,10 @@ def plotFilters(wav: ContinuousWavelet, scales: np.ndarray,
         # The following code is adapted from the internals of cwt
         int_psi, x = integrate_wavelet(wav, precision=8)
         step = x[1] - x[0]
-        j = np.floor(
-            np.arange(scale * width + 1) / (scale * step))
+        j = np.floor(np.arange(scale * width + 1) / (scale * step))
         if np.max(j) >= np.size(int_psi):
             j = np.delete(j, np.where((j >= np.size(int_psi)))[0])
-        j = j.astype(np.int)
+        j = j.astype(int)
 
         # normalize int_psi for easier plotting
         int_psi /= np.abs(int_psi).max()
@@ -49,14 +53,47 @@ def plotFilters(wav: ContinuousWavelet, scales: np.ndarray,
 
         # The CWT consists of convolution of filt with the signal at this scale
         # Here we plot this discrete convolution kernel at each scale.
-       
-        #f = np.linspace(-np.pi, np.pi, max_len)
+
+        # f = np.linspace(-np.pi, np.pi, max_len)
         f = np.fft.fftfreq(max_len, ts)
         filt_fft = np.fft.fft(filt, n=max_len)
         filt_fft /= np.abs(filt_fft).max()
-        ax.plot(f[f>=0], (np.abs(filt_fft)**2)[f>=0], alpha=0.6)
+        ax.plot(f[f >= 0], (np.abs(filt_fft) ** 2)[f >= 0], alpha=0.6)
 
     sigFFT = np.abs(np.fft.fft(signal))
     sigFFT /= sigFFT.max()
     sigF = np.fft.fftfreq(len(sigFFT), ts)
-    ax.plot(sigF[sigF>=0], sigFFT[sigF>=0])
+    ax.plot(sigF[sigF >= 0], sigFFT[sigF >= 0])
+
+
+def plotSSWTminiBatchs(
+    batchs: List[Tuple[np.ndarray, np.ndarray, np.ndarray]], ax: Axis
+):
+    """Plots in a packed set of axes the results of the minibatch ASSWT
+
+    Parameters
+    ----------
+    batchs : List[Tuple[np.ndarray, np.ndarray, np.ndarray]]
+        List of tuples containing (ASSWT, Frequencies, tail)
+    ax : Axis
+        Matplotlib Axis where function will plot
+    """
+
+    divider = make_axes_locatable(ax)
+    fig = ax.get_figure()
+
+    numBatchs = len(batchs)
+
+    newAx = ax
+    for i, (asswt, freqs, _) in enumerate(batchs):
+        batchTime = np.arange(asswt.shape[1])
+        if i != 0:
+            newAx = divider.new_horizontal(size="100%", pad=0.00)
+            newAx.yaxis.set_visible(False)
+            fig.add_axes(newAx)
+            ax.get_shared_y_axes().join(ax, newAx)
+        newAx.pcolormesh(
+            batchTime, freqs, np.abs(asswt), cmap='viridis', shading='gouraud'
+        )
+        if i == int((numBatchs - 1) // 2):
+            newAx.set_title('Adaptive SSWT - Minibatch')

@@ -129,9 +129,9 @@ sphinx: install $(SPHINX_INDEX)
 $(SPHINX_INDEX): docs/*.md
 	@ mkdir -p docs/about
 	@ cd docs && ln -sf ../README.md README.md
-	@ cd docs/about && ln -sf ../../CHANGELOG.md changelog.md
-	@ cd docs/about && ln -sf ../../CONTRIBUTING.md contributing.md
-	@ cd docs/about && ln -sf ../../LICENSE.md license.md
+#	@ cd docs/about && ln -sf ../../CHANGELOG.md changelog.md
+#	@ cd docs/about && ln -sf ../../CONTRIBUTING.md contributing.md
+#	@ cd docs/about && ln -sf ../../LICENSE.md license.md
 	cd docs && $(MAKE) clean
 	cd docs && $(MAKE) html
 
