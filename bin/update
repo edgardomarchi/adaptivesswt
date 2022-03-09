@@ -1,0 +1,79 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+import importlib
+import os
+import shutil
+import subprocess
+import sys
+import tempfile
+from cookiecutter.main import cookiecutter
+
+
+CWD = os.getcwd()
+TMP = tempfile.gettempdir()
+CONFIG = {
+    "full_name": "Marcos Cervetto",
+    "email": "cervetto@inti.gob.ar",
+    "gitlab_username": "marcos",
+    "gitlab_grupo": "auto",
+    "project_name": "sam",
+    "package_name": "sam",
+    "project_short_description": "Sistema de Automatización de Mediciones",
+    "python_major_version": 3,
+    "python_minor_version": 7,
+}
+
+
+def install(package='cookiecutter'):
+    try:
+        importlib.import_module(package)
+    except ImportError:
+        print("Installing cookiecutter")
+        subprocess.check_call([sys.executable, '-m', 'pip', 'install', package])
+
+
+def run():
+    print("Generating project")
+
+    os.chdir(TMP)
+    cookiecutter(
+        'https://gitlab.dilbert.inti.gob.ar/Python/template-python.git',
+        no_input=True,
+        overwrite_if_exists=True,
+        extra_context=CONFIG,
+    )
+
+
+def copy():
+    for filename in [
+        '.coveragerc',
+        '.editorconfig',
+        '.gitattributes',
+        '.gitignore',
+        '.isort.cfg',
+        '.mypy.ini',
+        '.pydocstyle.ini',
+        '.pylintrc',
+        '.verchew.ini',
+        'CONTRIBUTING.md',
+        'Makefile',
+        'pytest.ini',
+        'scent.py',
+        os.path.join('bin', 'checksum'),
+        os.path.join('bin', 'open'),
+        os.path.join('bin', 'update'),
+        os.path.join('bin', 'verchew'),
+        os.path.join('makeutils', 'debug.mk'),
+        os.path.join('makeutils', 'functions.mk'),
+    ]:
+        src = os.path.join(TMP, CONFIG['project_name'], filename)
+        dst = os.path.join(CWD, filename)
+        print("Updating " + filename)
+        shutil.copy(src, dst)
+
+
+if __name__ == '__main__':
+    install()
+    run()
+    copy()
