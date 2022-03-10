@@ -196,6 +196,7 @@ def adaptive_sswt(
 
         numWavelets = _calcNumWavelets(spectrum, freqs, method, thrsh, plotBands=False)
 
+        logger.debug("Spectrum energy normalized per band:\n%s\n", spectrum)
         logger.debug("Number of frequncies assigned per band:\n%s\n", numWavelets)
         logger.debug("Center frequencies per band:\n%s\n", freqs)
         logger.debug("Limits between bands:\n%s\n", limits)
@@ -219,7 +220,7 @@ def adaptive_sswt(
     return sst, freqs, tail
 
 
-def adaptive_sswt_miniBatch(
+def adaptive_sswt_overlapAndAdd(
     batchSize: int,
     signal: np.ndarray,
     maxIters: int = 2,
@@ -228,7 +229,7 @@ def adaptive_sswt_miniBatch(
     itl: bool = False,
     **kwargs,
 ) -> List[Tuple[np.ndarray, np.ndarray, np.ndarray]]:
-    """Calculates the adaptive SSWT for batches of the imput signal.
+    """Calculates the adaptive SSWT for batches of the input signal using overlapAndAdd method.
 
     Parameters
     ----------
@@ -277,6 +278,57 @@ def adaptive_sswt_miniBatch(
                 **config.asdict(),
             )
         )
+
+    return results
+
+def adaptive_sswt_slidingWindow(
+    batchSize: int,
+    signal: np.ndarray,
+    maxIters: int = 2,
+    method: str = 'proportional',
+    thrsh: float = 1 / 20,
+    itl: bool = False,
+    **kwargs,
+) -> List[Tuple[np.ndarray, np.ndarray, np.ndarray]]:
+    """Calculates the adaptive SSWT for batches of the input signal using sliding window method.
+
+    Parameters
+    ----------
+    batchSize : int
+        Size of each batch
+    signal : np.ndarray
+        Signal to analyze with the A-SSWT
+    maxIters : int, optional
+        Maximum number of iterations of the adaptive algorithm, by default 2
+    method : {'proportional','threshold'}, optional
+        Frequency reallocation method. Either 'threshold' or 'proportional', by default 'proportional'.
+    thrsh : float, optional
+        Detection level for 'threshold' method, by default 1/20
+    itl : bool, optional
+        True if in-the-loop synchrosqueezing is performed, by default False.
+
+    Returns
+    -------
+    List[Tuple[np.ndarray, np.ndarray, np.ndarray]]
+        List of tuples containin return arrays of `adaptive_sswt()`. I.e. [(ASSWT matrix, frequencies, tail),...].
+    """
+    padding = kwargs.get('pad',0)
+    num_batchs = int(np.ceil((len(signal) - padding) / batchSize))
+
+    results = []
+    startDiscard = int(np.floor(padding/2))
+    endDiscard = int(np.ceil(padding/2))
+
+    for b in range(num_batchs):
+
+        if b == 0:  # First batch has no startDiscard
+            signalBatch = signal[:batchSize + endDiscard]
+            asst, freqs, tail = adaptive_sswt(signalBatch, maxIters, method, thrsh, itl, **config.asdict())
+            results.append((asst[:, : batchSize], freqs, tail))
+        else:
+            signalBatch = signal[(b * batchSize) - startDiscard : ((b + 1) * batchSize) + endDiscard]
+            asst, freqs, tail = adaptive_sswt(signalBatch, maxIters, method, thrsh, itl, **config.asdict())
+            results.append((asst[:, startDiscard: startDiscard + batchSize], freqs, tail))
 
     return results
 
@@ -336,7 +388,7 @@ if __name__ == '__main__':
     # f, sig = generator.testChirp(t, 10, 25)
     # f-=5
     # _, sig = testUpDownChirp(t,1,10)
-    f, sig = generator.quadraticChirp(t, 5, 25)
+    f, sig = generator.quadraticChirp(t, 40, 30)
     # sig = generator.testSig(t)
     # sig = generator.testSine(t,15)
     # f = 15*np.ones_like(t)
@@ -353,8 +405,8 @@ if __name__ == '__main__':
     wcf = 1
     wbw = 0.5
 
-    maxFreq = 30
-    minFreq = 0.1
+    maxFreq = 50
+    minFreq = 20
     numFreqs = 12
 
     config = Configuration(
@@ -392,7 +444,7 @@ if __name__ == '__main__':
     maxIters = 5
     threshold = config.threshold * 2
     method = 'proportional'
-    itl = False
+    itl = True
 
     asst, aFreqs, tail = adaptive_sswt(
         sig, maxIters, method, threshold, itl, **config.asdict()
@@ -412,7 +464,7 @@ if __name__ == '__main__':
     config.pad = bPad
     bMaxIters = 5
 
-    batchs = adaptive_sswt_miniBatch(
+    batchs = adaptive_sswt_slidingWindow(
         bLen, sig, bMaxIters, method, threshold, itl, **config.asdict()
     )
     plotSSWTminiBatchs(batchs, bAsstAx)
@@ -422,7 +474,8 @@ if __name__ == '__main__':
     for (asswt, freqs, tail) in batchs:
         fBatchList.append(freqs[np.argmax(abs(asswt), axis=0)])
 
-    f_batch = np.array(fBatchList).flatten()
+    f_batch = np.array(fBatchList[1:-1]).flatten()
+    f_batch = np.concatenate((fBatchList[0], f_batch, fBatchList[-1]))
 
     #%% Instantaneous frequencies across methods
     fig, ax = plt.subplots(1)
@@ -439,10 +492,18 @@ if __name__ == '__main__':
         t[: len(signalR_sst)],
         sig[: len(signalR_sst)],
         label='Original Signal',
-        alpha=0.8,
+        alpha=0.8
     )
-    ax.plot(t[: len(signalR_sst)], signalR_sst, label='SSWT Signal')
-    ax.plot(t[: len(signalR_asst)], signalR_asst, label='A-SSWT Signal')
+    ax.plot(
+        t[: len(signalR_sst)],
+        signalR_sst,
+        label='SSWT Signal'
+    )
+    ax.plot(
+        t[: len(signalR_asst)],
+        signalR_asst,
+        label='A-SSWT Signal'
+    )
     ax.legend()
     fig.suptitle('Signal reconstruction')
 
@@ -469,5 +530,5 @@ if __name__ == '__main__':
     fig.suptitle('MSE(f)')
 
     plt.show(block=False)
-    input('Presione una tecla para cerrar los gráficos...')
+    input('Press enter to close plots...')
     plt.close('all')
