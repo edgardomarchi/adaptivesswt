@@ -1,18 +1,19 @@
+import inspect
 import os
 import sys
-import inspect
 import timeit
-
-import numpy as np
-import matplotlib.pyplot as plt
 from multiprocessing import cpu_count
 
-from adaptivesswt.sswt import sswt
+import matplotlib.pyplot as plt
+import numpy as np
+
 from adaptivesswt.configuration import Configuration
-from adaptivesswt import signal_utils as generator
+from adaptivesswt.sswt import sswt
+from adaptivesswt.utils import signal_utils as generator
+
 
 def test_complexity(stopSignalTime: float = 12) -> np.ndarray:
-    
+
     stopTime = stopSignalTime
     fs = 2000
     signalLen = stopTime * fs
@@ -31,7 +32,6 @@ def test_complexity(stopSignalTime: float = 12) -> np.ndarray:
         waveletBounds=(-3,3),
         threshold=signal.max()/(100),
         numProc=24,
-        log=False,
         plotFilt=False)
 
     timingsProc = np.empty(cpu_count())
@@ -43,7 +43,7 @@ def test_complexity(stopSignalTime: float = 12) -> np.ndarray:
         timingsProc[i-1] = timeit.timeit(sswt_fix, number=passes)/passes/stopTime
         print(f'Number of processes : {i}')
         print(f'Average timing normalized over signal length = {timingsProc[i-1]} s/s')
-    
+
     return timingsProc
 
 

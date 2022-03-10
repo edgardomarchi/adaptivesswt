@@ -204,12 +204,14 @@ def _freqMap(deltaFreqs: np.ndarray, borderFreqs: np.ndarray, aScale: np.ndarray
             jobs: mp.JoinableQueue, results: mp.Queue):
 
     while True:
-        job, tr_matr, wab = jobs.get()
-        St = np.zeros_like(tr_matr)
-        _freqSearch(deltaFreqs, borderFreqs, aScale, wab, tr_matr, St)
+        try:
+            job, tr_matr, wab = jobs.get()
+            St = np.zeros_like(tr_matr)
+            _freqSearch(deltaFreqs, borderFreqs, aScale, wab, tr_matr, St)
 
-        results.put((job, St))
-        jobs.task_done()
+            results.put((job, St))
+        finally:
+            jobs.task_done()
 
 
 @njit(fastmath=True)
