@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 import logging
+import queue
+import threading
 
 logger = logging.getLogger(__name__)
 
@@ -8,13 +10,11 @@ from typing import List, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
-import pywt
-import scipy.signal as sp
 
 from .configuration import Configuration
 from .sswt import reconstruct, reconstructCWT, sswt
 from .utils import signal_utils as generator
-from .utils.freq_utils import calcScalesAndFreqs, getDeltaAndBorderFreqs, getScale
+from .utils.freq_utils import getDeltaAndBorderFreqs, getScale
 from .utils.plot_utils import plotSSWTminiBatchs
 
 
@@ -269,14 +269,7 @@ def adaptive_sswt_overlapAndAdd(
         signalBatch = signal[b * batchSize : (b + 1) * batchSize] + tail[:batchSize]
 
         results.append(
-            adaptive_sswt(
-                signalBatch,
-                maxIters,
-                method=method,
-                thrsh=thrsh,
-                itl=itl,
-                **config.asdict(),
-            )
+            adaptive_sswt(signalBatch, maxIters, method, thrsh, itl, **kwargs)
         )
 
     return results
@@ -313,24 +306,70 @@ def adaptive_sswt_slidingWindow(
         List of tuples containin return arrays of `adaptive_sswt()`. I.e. [(ASSWT matrix, frequencies, tail),...].
     """
     padding = kwargs.get('pad',0)
-    num_batchs = int(np.ceil((len(signal) - padding) / batchSize))
+    numBatchs = int(np.ceil(len(signal) / batchSize))
 
-    results = []
+    jobs :queue.Queue = queue.Queue()
+    results :queue.Queue = queue.Queue()
+
     startDiscard = int(np.floor(padding/2))
     endDiscard = int(np.ceil(padding/2))
 
-    for b in range(num_batchs):
+    threads = _create_threads(batchSize, startDiscard, endDiscard, maxIters, method, thrsh, itl, kwargs, jobs, results, numBatchs)
 
-        if b == 0:  # First batch has no startDiscard
+
+    resultsList = [None] * numBatchs
+
+    _add_jobs(signal, numBatchs, batchSize,
+              startDiscard, endDiscard, jobs)
+
+    try:
+        jobs.join()
+    except KeyboardInterrupt: # May not work on Windows
+        logger.info('... canceling adaptive batch process...')
+    while not results.empty(): # Safe because all jobs have finished
+        job, asst, freqs, tail = results.get()  # _nowait()?
+        resultsList[job] = (asst, freqs, tail)
+
+    logger.info('Batched Synchrosqueezing Done!')
+
+    return resultsList  # type:ignore # TODO: find another way to order results
+
+
+def _create_threads(batchSize, startDiscard, endDiscard, maxIters, method, thrsh, itl, config,
+                    jobs, results, concurrency):
+    threads = []
+    for i in range(concurrency):
+        threads.append(threading.Thread(target=_worker,
+                       args=(batchSize, startDiscard, endDiscard, maxIters, method, thrsh, itl, config, jobs, results)))
+        threads[i].daemon = True
+        threads[i].start()
+    logger.info('Created %s threads.\n', concurrency)
+    return threads
+
+
+def _add_jobs(signal, numBatchs, batchSize, startDiscard, endDiscard, jobs):
+    for job in range(numBatchs):
+        if job == 0:
             signalBatch = signal[:batchSize + endDiscard]
-            asst, freqs, tail = adaptive_sswt(signalBatch, maxIters, method, thrsh, itl, **config.asdict())
-            results.append((asst[:, : batchSize], freqs, tail))
         else:
-            signalBatch = signal[(b * batchSize) - startDiscard : ((b + 1) * batchSize) + endDiscard]
-            asst, freqs, tail = adaptive_sswt(signalBatch, maxIters, method, thrsh, itl, **config.asdict())
-            results.append((asst[:, startDiscard: startDiscard + batchSize], freqs, tail))
+            signalBatch = signal[(job * batchSize) - startDiscard : ((job + 1) * batchSize) + endDiscard]
+        jobs.put((job, signalBatch))
+    logger.info('Queued %s batches.\n', numBatchs)
+    return
 
-    return results
+def _worker(batchSize, startDiscard, endDiscard, maxIters, method, thrsh, itl, config,
+            jobs: queue.Queue, results: queue.Queue):
+
+    while True:
+        try:
+            job, signal = jobs.get()
+            asst, freqs, tail = adaptive_sswt(signal, maxIters,method, thrsh, itl, **config)
+            if job == 0:
+                results.put((job, asst[:,:batchSize], freqs, tail))
+            else:
+                results.put((job, asst[:,startDiscard:batchSize+startDiscard], freqs, tail))
+        finally:
+            jobs.task_done()
 
 
 #%%
@@ -446,6 +485,9 @@ if __name__ == '__main__':
     method = 'proportional'
     itl = True
 
+    batch_time = 2
+    num_batchs = int(stopTime // batch_time)
+
     asst, aFreqs, tail = adaptive_sswt(
         sig, maxIters, method, threshold, itl, **config.asdict()
     )
@@ -457,8 +499,7 @@ if __name__ == '__main__':
     signalR_asst = reconstruct(asst, config.C_psi, aFreqs)
 
     ## Minibatch
-    batch_time = 2
-    num_batchs = int(stopTime // batch_time)
+
     bLen = int(len(t[t <= (num_batchs * batch_time)]) // num_batchs)
     bPad = int(bLen * 0.9)
     config.pad = bPad
@@ -532,3 +573,9 @@ if __name__ == '__main__':
     plt.show(block=False)
     input('Press enter to close plots...')
     plt.close('all')
+
+    import timeit
+    bSswt_fix = lambda : adaptive_sswt_slidingWindow(bLen, sig, bMaxIters, method, threshold, itl, **config.asdict())
+    timingProc = timeit.timeit(bSswt_fix, number=5)/5/len(sig)
+    print(f'Number of processes : {config.numProc}')
+    print(f'Average timing per signal sample = {timingProc} s/s')
