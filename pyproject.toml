@@ -1,0 +1,84 @@
+[tool.poetry]
+
+name = "adaptivesswt"
+version = "0.1.1"
+description = "A package to calculate an Adaptive Synchrosqueezing Transform"
+
+license = "MIT"
+
+authors = ["Edgardo Marchi <emarchi@inti.gob.ar>"]
+
+readme = "README.md"
+
+homepage = "https://github.com/edgardomarchi/adaptivesswt"
+repository = "https://github.com/edgardomarchi/adaptivesswt"
+
+keywords = ["Synchrosqueezing", "Wavelet", "Transform", "DSP"
+]
+
+[tool.poetry.dependencies]
+
+python = ">=3.7,<3.11"
+pywavelets = "^1.2"
+numpy = "^1.20"
+scipy = "*"
+numba = "^0.55"
+matplotlib = "*"
+
+[tool.poetry.dev-dependencies]
+
+# Formatters
+isort = "^5"   # A Python utility / library to sort imports
+black = "*"
+
+# Linters
+mypy = "*"
+pydocstyle = "*"
+pylint = "^2"
+
+# Testing
+pytest = "^5"
+pytest-cov = "*"
+pytest-describe = "*"
+pytest-expecter = "*"
+pytest-random = "*"
+freezegun = "*"        # a mocking library for datetime
+
+# Documentation
+sphinx = "*"
+pygments = "*"
+doc8 = "*"
+recommonmark = "*"
+m2r2 = "*"
+
+# Tooling
+pre-commit = "*"
+pyinstaller = "*"
+sniffer = "*"
+pyinotify = "*"
+bump2version = "*"
+cookiecutter = "*"
+
+[tool.poetry.scripts]
+
+#adaptivesswt = "adaptivesswt.cli:main"
+
+[tool.black]
+
+target-version = ["py38"]
+skip-string-normalization = true
+
+[tool.isort]
+profile = "black"
+
+#[[tool.poetry.source]]
+#name = "dilbert"
+#url = "https://pypi.dilbert.inti.gob.ar/"
+
+[build-system]
+requires = ["poetry>=1.0",
+    "setuptools!=50.0",
+    "wheel",
+]
+
+build-backend = "poetry.masonry.api"
