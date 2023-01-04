@@ -131,9 +131,11 @@ def analyze(signal: np.ndarray, config: Configuration,
         stAx.get_shared_y_axes().join(stAx, asAx, baAx)
         stAx.pcolormesh(time, freqs, np.abs(sst), cmap='plasma', shading='gouraud')
         stAx.set_title('SSWT')
+        stAx.set_ylabel('frequency', loc='top')
         asAx.pcolormesh(time, afreqs, np.abs(asst), cmap='plasma', shading='gouraud')
         asAx.set_title('ASSWT')
         plotSSWTminiBatchs(batchs, baAx)
+        baAx.set_xlabel('time', loc='right')
 
         gs.tight_layout(fig, rect=[0, 0.03, 1, 0.95])
 

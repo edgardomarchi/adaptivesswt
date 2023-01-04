@@ -24,6 +24,7 @@ numpy = "^1.20"
 scipy = "*"
 numba = "^0.55"
 matplotlib = "*"
+SoundFile = "^0.10.3.post1"
 
 [tool.poetry.dev-dependencies]
 

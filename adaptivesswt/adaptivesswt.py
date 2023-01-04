@@ -8,8 +8,8 @@ logger = logging.getLogger(__name__)
 
 from typing import List, Tuple, Union
 
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
 
 plt.rcParams['text.usetex'] = True
 
@@ -140,17 +140,18 @@ def _calcNumWavelets(
     logger.debug('Remainder: %d', rem)
 
     if plotBands:
-        fig, axes = plt.subplots(2, 1, sharex=True)
+        fig, axes = plt.subplots(2, 1, sharex=True, dpi=300)
         axes[0].plot(freqs, abs(spectrum))
-        axes[0].set_title('Signal spectrum')
-        axes[0].set_ylabel('Normalized Energy')
+        axes[0].set_title('Signal spectrum', fontsize=18)
+        axes[0].set_ylabel(r'$\hat{E}_{N\!t}$', fontsize=18)
         width = np.min(np.diff(freqs)) * 0.8
         axes[1].bar(freqs, numWavelets, width=width)
-        axes[1].set_ylabel(
-            r'Number of frequencies to accomodate' '\n' 'within each band'
-        )
-        axes[1].set_xlabel(r'$w_k$')
-        fig.suptitle(f'K = {len(spectrum)} frequencies')
+        axes[1].set_ylabel(r'$K^*_k$', fontsize=18)
+        axes[0].text(
+            45, 1, f'k={len(spectrum)}', ha="right", va="top", fontsize=18)
+        #axes[0].legend(f'k={len(spectrum)}', loc='upper right')
+        axes[1].set_xlabel(r'[Hz]', loc='right', fontsize=18)
+        #fig.suptitle(f'K = {len(spectrum)} frequencies')
 
     return numWavelets
 
@@ -519,9 +520,8 @@ def main():
 
     #%% Setup Figures
 
-    compFig = plt.figure(
-        f'Method comparison - N = {numFreqs} frequencies', figsize=(10, 6), dpi=600
-    )
+    compFig = plt.figure()
+        #f'Method comparison - N = {numFreqs} frequencies', figsize=(10, 6), dpi=600
     gs = compFig.add_gridspec(2, 3)
     ifAx = plt.subplot(
         gs[0, 0],
@@ -549,8 +549,9 @@ def main():
     # f, sig = generator.testChirp(t, 10, 25)
     # _, sig = testUpDownChirp(t,1,10)
     # f, sig = generator.quadraticChirp(t, 40, 30)
+    frqs, sig = generator.dualQuadraticChirps(t, (28, 30), (42, 38))
     # f, sig = generator.testSig(t)
-    frqs, sig = generator.tritone(t, 20, 10 * np.pi, 40)
+    # frqs, sig = generator.tritone(t, 20, 10 * np.pi, 40)
     # f, sig = generator.testSine(t,15)
     # f = 15*np.ones_like(t)
     # sig = generator.delta(t, 2)
@@ -559,10 +560,10 @@ def main():
     # sig = sig[:signalLen]
     # f = f[:signalLen]
 
-    f1, f2, f3 = frqs
+    f1, f2 = frqs
     ifAx.plot(t[: len(sig)], f1)
     ifAx.plot(t[: len(sig)], f2)
-    ifAx.plot(t[: len(sig)], f3)
+    #ifAx.plot(t[: len(sig)], f3)
     ifAx.set_title('Instantaneous frequency')
 
     #%% SSWT, CWT and Spectrogram
@@ -687,7 +688,7 @@ def main():
     #%% Plot bands
     maxIters = 2
     threshold = 0.15  # config.threshold * 3
-    method = 'proportional'
+    method = 'threshold'
     itl = False
     config.plotFilt = True
 

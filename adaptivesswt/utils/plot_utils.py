@@ -30,10 +30,10 @@ def plotFilters(
     width = wav.upper_bound - wav.lower_bound
     max_len = int(np.max(scales) * width + 1)
 
-    fig, ax = plt.subplots(1)
+    fig, ax = plt.subplots(1,dpi=300)
     ax.grid(True, axis='x')
-    ax.set_xlabel('Frequency (Hz)')
-    fig.suptitle('Signal and individual wavelets normalized spectra')
+    ax.set_xlabel('[Hz]', loc='right', fontsize=18)
+    fig.suptitle('Signal and wavelets normalized spectra', fontsize=18)
 
     for scale in scales:
 

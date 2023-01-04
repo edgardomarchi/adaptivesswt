@@ -1,18 +1,6 @@
-""" This script downloads and process data from the dataset below.
+""" This script downloads and process data from a wave file.
 
 The script is intended to serve as an example for usage/configuration and evaluation of this package.
-
-Test data used from:
-Shi, Kilin; Schellenberger, Sven (2019): A dataset of radar-recorded heart sounds and vital signs
-including synchronised reference sensor signals. figshare. Dataset.
-https://doi.org/10.6084/m9.figshare.9691544.v1
-
-Data URL: https://figshare.com/ndownloader/files/17357702
-
-Usage:
-
-$ python process_data_example.py -i dataset/datasets/measurement_data_person11/PCG_front_radar_front\
-/PCG_2L_radar_4L/apnea/inhaled/DATASET_2017-02-16_10-56-05_Person\ 11.mat
 
 """
 
@@ -30,7 +18,7 @@ import numpy as np
 from adaptivesswt.configuration import Configuration
 from adaptivesswt.sswt import reconstruct
 from adaptivesswt.utils.freq_utils import calcScalesAndFreqs
-from adaptivesswt.utils.import_utils import import_mat, raw2Data
+from adaptivesswt.utils.import_utils import wav2Data
 from adaptivesswt.utils.process_data import analyze, extractPhase, intDecimate
 
 logging.basicConfig(format='%(levelname)s - %(asctime)s - %(name)s - %(message)s')
@@ -46,37 +34,16 @@ ap.add_argument("-i", "--inputFile", required=True, help="Input file to process"
 args = vars(ap.parse_args())
 dataFile = args['inputFile']
 
-# Obtain dataset if not present # TODO: itegrate cmd args
-datasetURL = 'https://figshare.com/ndownloader/files/17357702'
-zipFileName = 'dataset.zip'
-zipFileDir = './' + os.path.splitext(zipFileName)[0]
-
-try:
-    with ZipFile(zipFileName, 'r') as zipFile:
-        if zipFile.testzip() is not None:
-            raise FileNotFoundError('Zip File is damaged!')  # Bad
-except FileNotFoundError:
-    print('Downloading dataset...')
-    rq.urlretrieve(datasetURL, zipFileName)
-    print('Dataset downloaded')
-
-if not os.path.isdir(zipFileDir):
-    print('Extracting dataset...')
-    with ZipFile(zipFileName, 'r') as zip_ref:
-        zip_ref.extractall(zipFileDir)
-    print('Done!')
-
-print('Dataset Ready!')
 
 # Data import
 logger.info('Importing data...')
-data = raw2Data(import_mat(dataFile), filterLeads=True)
+data = wav2Data(dataFile)
 
 signal, time = extractPhase(data)
-
+print(f'Fs = {data.fs}')
 # Get signals
-((signalPCG, pcgFs), (signalPulse, pulseFs), (signalResp, respFs)) = intDecimate(
-    signal, data.fs, 800, 40, 6
+((signalPCG, pcgFs), (signalPulse, pulseFs), (signalResp, respFs)) = (
+  (signal, data.fs), (signal, data.fs), (signal, data.fs)
 )
 
 # Plotting parameters
@@ -85,8 +52,8 @@ dpi = 300
 #### PCG
 logger.info('Analizing PCG frequencies...')
 configPCG = Configuration(
-    minFreq=15,
-    maxFreq=200,
+    minFreq=2,
+    maxFreq=5,
     numFreqs=50,
     ts=1 / pcgFs,
     wcf=1,
@@ -205,7 +172,7 @@ sstPulse, aSstPulse, freqsPulse, pulseBatchs, pulseFig = analyze(
     plotPulse,
 )
 if plotPulse:
-    #pulseFig.suptitle('Pulse')  # type: ignore
+    pulseFig.suptitle('Pulse')  # type: ignore
     pulseFig.savefig(  # type: ignore
         parentDir / 'docs/img/pulse_method_comparison.png',
         dpi=dpi,

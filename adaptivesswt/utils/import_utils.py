@@ -9,6 +9,7 @@ from dataclasses import dataclass
 
 import numpy as np
 import scipy.signal as sp
+import soundfile as sf
 from scipy.io import loadmat
 
 
@@ -76,6 +77,11 @@ def raw2Data(dataRaw, normalize=True, filterLeads= True, removeLeadsOffset=True,
 
     return MeasurementData(radarI, radarQ, pcg, ecg2, ecg3, ecg, resp, fs)
 
+def wav2Data(filename: str) -> MeasurementData:
+    data, samplerate = sf.read(filename)
+    return MeasurementData(data[:,0], data[:,1], np.zeros_like(data[:,0]), np.zeros_like(data[:,0]),
+                           np.zeros_like(data[:,0]),np.zeros_like(data[:,0]),np.zeros_like(data[:,0]),
+                           samplerate)
 
 if __name__ == '__main__':
     import logging
