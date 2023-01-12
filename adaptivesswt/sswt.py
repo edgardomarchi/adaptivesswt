@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pywt
 import scipy.signal as sp
-from numba import njit
+from numba import njit, prange
 
 from .utils.freq_utils import (
     calcFilterLength,
@@ -100,7 +100,7 @@ def sswt(signal: np.ndarray,
                                method='fft')
 
     #### SSWT ####
-    numbaParallel = kwargs.get('numbaParallel', False)
+    numbaParallel = kwargs.get('numbaParallel', True)
     St = synchrosqueeze(cwt, freqs, ts, scales, deltaScales, threshold, numProc, numbaParallel)
     if pad != 0:
         assert C_psi is not None, 'Atention: C_psi is needed if pad is != 0'
@@ -114,7 +114,7 @@ def sswt(signal: np.ndarray,
 
 def synchrosqueeze(cwt_matr: np.ndarray, freqs: np.ndarray, ts: float, scales: np.ndarray,
                    deltaScales: np.ndarray, threshold: float,
-                   numProc: int, numbaParallel: bool = False):
+                   numProc: int, numbaParallel: bool = True):
 
     scaleExp = -3/2
     aScale = (scales ** scaleExp) * deltaScales
@@ -206,8 +206,7 @@ def _freqMap(deltaFreqs: np.ndarray, borderFreqs: np.ndarray, aScale: np.ndarray
     while True:
         try:
             job, tr_matr, wab = jobs.get()
-            St = np.zeros_like(tr_matr)
-            _freqSearch(deltaFreqs, borderFreqs, aScale, wab, tr_matr, St)
+            St = _freqSearch(deltaFreqs, borderFreqs, aScale, wab, tr_matr) #, St)
 
             results.put((job, St))
         finally:
@@ -216,8 +215,9 @@ def _freqMap(deltaFreqs: np.ndarray, borderFreqs: np.ndarray, aScale: np.ndarray
 
 @njit(fastmath=True)
 def _freqSearch(deltaFreqs: np.ndarray, borderFreqs: np.ndarray,
-                aScale: np.ndarray, wab: np.ndarray, tr_matr: np.ndarray,
-                St: np.ndarray):
+                aScale: np.ndarray, wab: np.ndarray, tr_matr: np.ndarray):
+
+    St = np.zeros_like(tr_matr)
 
     for b in range(St.shape[1]):        # Time
         for w in range(St.shape[0]):    # Frequency
@@ -225,13 +225,14 @@ def _freqSearch(deltaFreqs: np.ndarray, borderFreqs: np.ndarray,
                                         wab[:,b] <= borderFreqs[w+1])
 
             St[w,b] = (tr_matr[components,b] * aScale[components]).sum() / deltaFreqs[w]
+    return St
 
 @njit(parallel=True, fastmath=True)
 def _freqSearchNumbaParallel(deltaFreqs: np.ndarray, borderFreqs: np.ndarray,
                      aScale: np.ndarray, wab: np.ndarray, tr_matr: np.ndarray,
                      St: np.ndarray):
-    for b in range(St.shape[1]):        # Time
-        for w in range(St.shape[0]):    # Frequency
+    for b in prange(St.shape[1]):        # Time
+        for w in prange(St.shape[0]):    # Frequency
             components = np.logical_and(wab[:,b] > borderFreqs[w],
                                         wab[:,b] <= borderFreqs[w+1])
 
@@ -267,10 +268,12 @@ def reconstructCWT(cwt: np.ndarray, wav: pywt.ContinuousWavelet,
     return signalR.real
 
 
+
 if __name__=='__main__':
 
     from .configuration import Configuration
     from .utils import signal_utils as generator
+    from .utils.measures_utils import renyi_entropy
 
     plt.close('all')
     logging.basicConfig(filename='sswt.log', filemode='w',
@@ -278,25 +281,26 @@ if __name__=='__main__':
     logger = logging.getLogger(__name__)
     logger.setLevel(logging.DEBUG)
 
-    stopTime = 12
-    fs = 2000
+    stopTime = 5
+    fs = 200
     signalLen = stopTime * fs
 
     t, ts = np.linspace(0, stopTime, signalLen, endpoint=False, retstep=True)
 
     # signal = generator.testSine(t, 0.2) + generator.testSine(t,1) + generator.testSine(t, 5) + generator.testSine(t,10)
-    f, signal = generator.testSig(t)
+    # f, signal = generator.testSig(t)
+    f, signal = generator.crossChrips(t, 2, 8, 2)
     # _, signal = generator.testChirp(t, 0.1, 30)
     # _, signal = generator.quadraticChirp(t, 1, 30)
     # signal = np.zeros_like(t)
     # signal[fs:2*fs]=1.0
 
-    wcf = 0.5
-    wbw = 2
+    wcf = 1
+    wbw = 1
 
-    maxFreq = 10
+    maxFreq = 11
     minFreq = 0.1
-    numFreqs = 128
+    numFreqs = 10
 
     assert fs/len(signal)<= minFreq, 'ATETENTION: Minimum analysis frecuequency is lower than L/N!'
     print(f'Wav len pre calculated = {fs/minFreq}')
@@ -308,7 +312,7 @@ if __name__=='__main__':
         ts=ts,
         wcf=wcf,
         wbw=wbw,
-        waveletBounds=(-3,3),
+        waveletBounds=(-8,8),
         threshold=signal.max()/(100),
         numProc=4,
         plotFilt=False)
@@ -320,6 +324,11 @@ if __name__=='__main__':
     scales, _, _, _ = calcScalesAndFreqs(ts, config.wcf, config.minFreq, config.maxFreq, config.numFreqs)
 
     sst, cwt, freqs, tail = sswt(signal, **config.asdict())
+    rentrCWT = renyi_entropy(cwt,2)
+    rentrSST = renyi_entropy(sst,2)
+    print(f'Rènyi entropy of CWT = {rentrCWT}')
+    print(f'Rènyi entropy of SSWT = {rentrSST}')
+
 
     mainFig = plt.figure('Method comparison')
     gs = mainFig.add_gridspec(2, 2)

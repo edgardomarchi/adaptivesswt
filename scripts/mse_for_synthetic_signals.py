@@ -10,6 +10,7 @@ from adaptivesswt.adaptivesswt import (
 )
 from adaptivesswt.configuration import Configuration
 from adaptivesswt.sswt import sswt
+from adaptivesswt.utils.measures_utils import renyi_entropy
 from adaptivesswt.utils.plot_utils import plotSSWTminiBatchs
 
 
@@ -26,18 +27,35 @@ def detect_frequencies(tr_matr, freqs, border=None):
     return f
 
 def get_mse_batched(signal:np.ndarray, t:np.ndarray, f:Tuple,
-                    transform:Callable, plots: bool,
+                    transform:Callable, plots: bool, ax: np.ndarray,
                     config:Configuration, **kwargs):
 
     border = None if len(f)==1 else (config.maxFreq + config.minFreq)/2
 
+    entropies = [0.0, 0.0, 0.0, 0.0]
+
     sst, cwt, freqs, _ = sswt(signal, **config.asdict())
+    entropies[0] = renyi_entropy(cwt)
+    entropies[1] = renyi_entropy(sst)
+    if plots:
+        ax[0,0].pcolormesh(t, freqs, np.abs(cwt), cmap='plasma', shading='gouraud')
+        ax[0,0].set_title('CWT')
+        ax[0,1].pcolormesh(t, freqs, np.abs(sst), cmap='plasma', shading='gouraud')
+        ax[0,1].set_title('SST')
+
+
     f1_sst, f2_sst = detect_frequencies(np.abs(sst), freqs, border)
     f1_cwt, f2_cwt = detect_frequencies(np.abs(cwt), freqs, border)
 
     asst, aFreqs, _ = adaptive_sswt(signal, kwargs['bMaxIters'],
                                     kwargs['method'], kwargs['threshold'],
                                     kwargs['itl'], **config.asdict())
+
+    entropies[2] = renyi_entropy(asst)
+    if plots:
+        ax[1,0].pcolormesh(t, aFreqs, np.abs(asst), cmap='plasma', shading='gouraud')
+        ax[1,0].set_title('ASST')
+
 
     f1_asst, f2_asst = detect_frequencies(np.abs(asst), aFreqs, border)
 
@@ -59,11 +77,15 @@ def get_mse_batched(signal:np.ndarray, t:np.ndarray, f:Tuple,
 
     f1BatchList = []
     f2BatchList = []
+    entropiesBatchList = []
     # Recover instantaneous frequencies:
     for (asswtb, freqsb, _) in batchs:
+        entropiesBatchList.append(renyi_entropy(asswtb))
         f1b , f2b  = detect_frequencies(asswtb, freqsb, border)
         f1BatchList.append(f1b)
         f2BatchList.append(f2b)
+
+    entropies[3] = np.array(entropiesBatchList).sum()/len(batchs)
 
     f1_batch = np.array(f1BatchList[1:-1]).flatten()
     f1_batch = np.concatenate((f1BatchList[0], f1_batch, f1BatchList[-1]))
@@ -74,6 +96,9 @@ def get_mse_batched(signal:np.ndarray, t:np.ndarray, f:Tuple,
     mse_asst_batch_total = mse_asst_batch.sum() / len(mse_asst_batch)
 
     if plots:
+        plotSSWTminiBatchs(batchs, ax[1,1])
+        ax[1,1].set_title('B-ASST')
+
         ### TODO: This code is assuming two frequency components in the signal. It should be generalized.
 
         #### Setup plot ####
@@ -121,7 +146,6 @@ def get_mse_batched(signal:np.ndarray, t:np.ndarray, f:Tuple,
         # asstAx.plot(t,f2_asst,'--', color='orange')
 
         plotSSWTminiBatchs(batchs, bAsstAx)
-        plt.show()
 
         ifFig = plt.figure(f"IF - ITL/{kwargs['method']}" if kwargs['itl'] else f"OTL/{kwargs['method']}",
                            dpi=100)
@@ -146,7 +170,7 @@ def get_mse_batched(signal:np.ndarray, t:np.ndarray, f:Tuple,
         mseCompAx.legend()
 
 
-    return mse_cwt_total, mse_sst_total, mse_asst_total, mse_asst_batch_total
+    return mse_cwt_total, mse_sst_total, mse_asst_total, mse_asst_batch_total, entropies
 
 
 if __name__=="__main__":
@@ -181,9 +205,6 @@ if __name__=="__main__":
         'Dual Quadratic Chirp': generator.dualQuadraticChirps(t, (28, 30), (42, 38))
     }
 
-    # tableName = 'dual_qchirp'
-    # f, signal = generator.dualQuatraticChirps(t, (28, 30), (40, 38))
-
     config = Configuration(
         minFreq=20,
         maxFreq=50,
@@ -203,7 +224,7 @@ if __name__=="__main__":
     bLen = int(len(t[t <= (num_batchs * batch_time)]) // num_batchs)   # Batch length in samples
     bPad = int(bLen * 0.9)      # Padding / overlapping per batch in samples
     config.pad = bPad
-    threshold = config.threshold * 10    # Threshold for ASSWT
+    threshold = config.threshold * 50    # Threshold for ASSWT
     bMaxIters = 2       # Max iterations in batched mode
 
     # Transform function to run
@@ -224,32 +245,80 @@ if __name__=="__main__":
         },
         index=signals.keys())
 
+    entropies = pd.DataFrame(data={
+        'CWT'            :[0,0,0,0,0],
+        'SST'            :[0,0,0,0,0],
+        'ASST-ITL-prop'  :[0,0,0,0,0],
+        'ASST-ITL-thrs'  :[0,0,0,0,0],
+        'ASST-OTL-prop'  :[0,0,0,0,0],
+        'ASST-OTL-thrs'  :[0,0,0,0,0],
+        'B-ASST-ITL-prop':[0,0,0,0,0],
+        'B-ASST-ITL-thrs':[0,0,0,0,0],
+        'B-ASST-OTL-prop':[0,0,0,0,0],
+        'B-ASST-OTL-thrs':[0,0,0,0,0]
+        },
+        index=signals.keys())
+
+    # Translate method string from printable to parameter:
+    methd = {'thrs':'threshold', 'prop':'proportional'}
+
+    sinFig, sinAxes = plt.subplots(2,2)
+    sinFig.suptitle('Sine')
+    dqcFig, dqcAxes = plt.subplots(2,2)
+    dqcFig.suptitle('Dual Quadratic Chirp')
+    lcFig, lcAxes = plt.subplots(2,2)
+    lcFig.suptitle('Linear Chirp')
+
     for signal_name, (f, signal) in signals.items():
 
-        for (itl, method) in itertools.product([False, False],['thrs','prop']):
+        for (itl, method) in itertools.product([False, True],methd.keys()):
             plots = False
             itl_str = 'ITL' if itl else 'OTL'
             key = f'-{itl_str}-{method}'
             print(f'Analizing: {signal_name}{key}')
-            if signal_name == 'Dual Quadratic Chirp': plots = True
-            mse = get_mse_batched(signal, t, f, tr, plots=plots, config=config,  # type: ignore # Since f is always a tuple
-                                  bLen=bLen, bMaxIters=bMaxIters, method=method,
-                                  threshold=threshold, itl=itl)
+
+            axesToPlot = []
+            if signal_name == 'Dual Quadratic Chirp' and not itl:
+                plots = True
+                axesToPlot = dqcAxes
+            if signal_name == 'Sine' and itl:
+                plots = True
+                axesToPlot = sinAxes
+            if signal_name == 'Linear Chirp' and not itl:
+                plots = True
+                axesToPlot = lcAxes
+
+            mse = get_mse_batched(signal, t, f, tr, plots=plots, ax=axesToPlot,   # type: ignore # Since f is always a tuple
+                                  config=config, bLen=bLen, bMaxIters=bMaxIters,
+                                  method=methd[method], threshold=0.5, itl=itl)
+
             results.loc[signal_name, 'CWT'] = mse[0]
             results.loc[signal_name, 'SST'] = mse[1]
             results.loc[signal_name, 'ASST'+key] = mse[2]
             results.loc[signal_name, 'B-ASST'+key] = mse[3]
+            entropies.loc[signal_name, 'CWT'] = mse[4][0]
+            entropies.loc[signal_name, 'SST'] = mse[4][1]
+            entropies.loc[signal_name, 'ASST'+key] = mse[4][2]
+            entropies.loc[signal_name, 'B-ASST'+key] = mse[4][3]
 
-    print("MSE Results:")
+    print("\nMSE Results:")
     print(results)
 
-    results.style.to_latex(parentDir/f'docs/latex/mse_table_signal.tex',
+    print("\nEntropies:")
+    print(entropies)
+
+    #results.style.format('{:.4f}')
+    results.style.format('{:.4f}').to_latex(parentDir/f'docs/latex/mse_table_signal.tex',
                            hrules=True, column_format='|r|c|c|c|c|c|c|c|c|c|c|')
+
+    #entropies.style.format('{:.4f}')
+    entropies.style.format('{:.4f}').to_latex(parentDir/f'docs/latex/entropies_table.tex',
+                             hrules=True, column_format='|r|c|c|c|c|c|c|c|c|c|c|')
 
     ########################
     ## MSE vs Iterations: ##
     ########################
-    iters = np.linspace(0, 7, 7, endpoint=False, dtype=int)
+    iters = np.linspace(0, 4, 4, endpoint=False, dtype=int)
 
     f, signal = signals['Dual Quadratic Chirp']
 
@@ -269,12 +338,12 @@ if __name__=="__main__":
     for key in mseASSTIter:
         for bMaxIter in iters:
             print(f'Analizing {key}, iter : {bMaxIter}')
-            mse = get_mse_batched(signal, t, f, tr, False, config,
+            mse = get_mse_batched(signal, t, f, tr, False, np.array([]), config,
                                   bLen=bLen, bMaxIters=bMaxIter,
                                   method=key.split('/')[1], threshold=threshold,
                                   itl=(True if key.split('/')[0] == 'ITL' else False))
-            mseASSTIter[key][bMaxIter] = mse[-2]
-            mseBASSTIter[key][bMaxIter] = mse[-1]
+            mseASSTIter[key][bMaxIter] = mse[-3]
+            mseBASSTIter[key][bMaxIter] = mse[-2]
         print(f'MSE: {mseASSTIter[key]}')
         print('----------')
 

@@ -50,6 +50,10 @@ def test_complexity(stopSignalTime: float = 20) -> np.ndarray:
 if __name__ == '__main__':
     import platform
 
+    # Uncomment if you have pyqt installed:
+    # import matplotlib
+    # matplotlib.use('Qt5Agg')
+
     numLengths = 10
     signalLengths = np.linspace(20, 200, numLengths, dtype=int)
     print(f'Performing test for signal lengths of {signalLengths} s.')
@@ -60,10 +64,11 @@ if __name__ == '__main__':
         print('--------------------', end='\n')
 
     plt.figure('Normalized time vs number of processes')
+    plt.gca().set_xlabel('processes')
+    plt.gca().set_ylabel('s/S',loc='top')
     for i in range(numLengths):
         plt.plot(
             np.arange(cpu_count()) + 1, timings[i], label=f'{signalLengths[i]} s signal'
         )
-    plt.suptitle(f'CPU = {platform.processor()}')
     plt.legend()
     plt.show()

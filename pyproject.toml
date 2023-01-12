@@ -72,10 +72,6 @@ skip-string-normalization = true
 [tool.isort]
 profile = "black"
 
-#[[tool.poetry.source]]
-#name = "dilbert"
-#url = "https://pypi.dilbert.inti.gob.ar/"
-
 [build-system]
 requires = ["poetry>=1.0",
     "setuptools!=50.0",

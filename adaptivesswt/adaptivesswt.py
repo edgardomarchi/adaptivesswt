@@ -81,8 +81,10 @@ def _proportional(nv: int, spectrum: np.ndarray) -> np.ndarray:
         Array of ints seats allocated to each band
     """
     quota = sum(spectrum) / (1 + nv)
-    frac = np.array([freq / quota for freq in spectrum])
-    res = np.array([int(f) for f in frac])
+    frac = spectrum / quota
+    frac[np.isnan(frac)] = 0
+    res = frac.astype(int)
+
     n = nv - res.sum()  # number of frequencies remaining to allocate
     if n == 0:
         return res  # done
@@ -98,7 +100,7 @@ def _proportional(nv: int, spectrum: np.ndarray) -> np.ndarray:
             n -= 1  # attempt to handle perfect equality
             if n == 0:
                 return res  # done
-    assert False  # should never happen
+    assert False , f'Prop: condition should never happen. n={n}'
 
 
 def _calcNumWavelets(
@@ -243,11 +245,11 @@ def adaptive_sswt(
         _, limits = getDeltaAndBorderFreqs(freqs)
         if itl:
             spectrum = ((abs(sst)) / (getScale(freqs, kwargs['ts'], kwargs['wcf'])[:, None])).sum(axis=1)  # type: ignore
-        else:  # getScale always returns ndarray in this case
+            # getScale always returns ndarray in this case
+        else:
             spectrum = ((abs(cwt)) / (getScale(freqs, kwargs['ts'], kwargs['wcf'])[:, None])).sum(axis=1)  # type: ignore
             # getScale always returns ndarray in this case
 
-        spectrum /= spectrum.max()
 
         numWavelets = _calcNumWavelets(
             spectrum, freqs, method, thrsh, plotBands=kwargs.get('plotFilt', False)
@@ -272,7 +274,7 @@ def adaptive_sswt(
         kwargs['custom_scales'] = scales_adp
         sst, cwt, freqs, tail = sswt(signal, **kwargs)
         if not sst.any():
-            logger.warning('ATENTION! SSWT contains only 0s')
+            logger.warning('\nATENTION! SSWT contains only 0s\n\t Analized frecuencies: %s \n\n', freqs)
 
     return sst, freqs, tail
 
@@ -492,6 +494,8 @@ def main():
     from os.path import abspath, dirname
     from pathlib import Path
 
+    from .utils.measures_utils import renyi_entropy
+
     parentDir = Path(dirname(dirname(abspath(__file__))))
 
     plt.close('all')
@@ -510,7 +514,7 @@ def main():
     signalLen = int(stopTime * fs)
 
     wcf = 1
-    wbw = 5
+    wbw = 10
 
     maxFreq = 50
     minFreq = 10
@@ -568,6 +572,18 @@ def main():
 
     #%% SSWT, CWT and Spectrogram
 
+    sstConfig = Configuration(
+        minFreq=minFreq,
+        maxFreq=maxFreq,
+        numFreqs=numFreqs+12,
+        ts=ts,
+        wcf=wcf,
+        wbw=wbw,
+        waveletBounds=(-8, 8),
+        threshold=sig.max() / (100),
+        numProc=4,
+    )
+
     config = Configuration(
         minFreq=minFreq,
         maxFreq=maxFreq,
@@ -575,7 +591,7 @@ def main():
         ts=ts,
         wcf=wcf,
         wbw=wbw,
-        waveletBounds=(-6, 6),
+        waveletBounds=(-8, 8),
         threshold=sig.max() / (100),
         numProc=4,
     )
@@ -584,7 +600,11 @@ def main():
     spAx.set_title('Spectrogram')
     spAx.set_ylim([minFreq, maxFreq])
 
-    sst, cwt, freqs, tail = sswt(sig, **config.asdict())
+    sst, cwt, freqs, tail = sswt(sig, **sstConfig.asdict())
+    reCwt = renyi_entropy(cwt)
+    print(f'Entropy of CWT = {reCwt}')
+    reSst = renyi_entropy(sst)
+    print(f'Entropy of SST = {reSst}')
 
     wtAx.pcolormesh(t, freqs, np.abs(cwt), cmap='plasma', shading='gouraud')
     wtAx.set_title('Wavelet Transform')
@@ -600,10 +620,10 @@ def main():
     f_cwt = freqs[np.argmax(abs(cwt), axis=0)]
 
     #%% Adaptive SSWT and minibatch A SSWT
-    maxIters = 3
+    maxIters = 2
     threshold = config.threshold * 2
     method = 'proportional'
-    itl = True
+    itl = False
 
     batch_time = 2
     num_batchs = int(stopTime // batch_time)
@@ -611,6 +631,8 @@ def main():
     asst, aFreqs, tail = adaptive_sswt(
         sig, maxIters, method, threshold, itl, **config.asdict()
     )
+    reAsst = renyi_entropy(asst)
+    print(f'Entropy of ASST = {reAsst}')
 
     f_asst = aFreqs[np.argmax(abs(asst), axis=0)]
     asstAx.pcolormesh(t, aFreqs, np.abs(asst), cmap='plasma', shading='gouraud')
