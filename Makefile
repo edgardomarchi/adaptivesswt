@@ -166,18 +166,18 @@ $(WHEEL): $(SOURCES) pyproject.toml
 
 .PHONY: version version-chk print-version
 version-chk:
-	@$(call check-create-branch,master)
+	@$(call check-create-branch,main)
 	@$(call assert-command-present,$(BUMPVERSION))
 	@$(call check-file-changes,poetry.lock)
 	@$(call check-file-changes,setup.py)
 	@$(call check-wd)
-	@$(call check-upstream,master)
+	@$(call check-upstream,main)
 
-version: install version-chk ## Make a version bump and push it to master
-	@ printf "Checking out master ...\n" && git checkout master --quiet
+version: install version-chk ## Make a version bump and push it to main
+	@ printf "Checking out main ...\n" && git checkout main --quiet
 	@ $(RUN) $(BUMPVERSION) $(FIRSTARG)
-	@ git push -o ci.skip origin master
-	@ git push origin master --tags
+	@ git push -o ci.skip origin main
+	@ git push origin main --tags
 	@ $(MAKE) --no-print-directory -f $(THIS_FILE) print-version
 
 print-version:
