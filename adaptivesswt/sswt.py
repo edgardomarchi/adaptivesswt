@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pywt
 import scipy.signal as sp
-from numba import njit, prange
+from numba import njit, prange, set_num_threads
 
 from .utils.freq_utils import (
     calcFilterLength,
@@ -156,6 +156,7 @@ def synchrosqueeze(cwt_matr: np.ndarray, freqs: np.ndarray, ts: float, scales: n
     ####################################
 
     if numbaParallel:
+        set_num_threads(numProc)
         _freqSearchNumbaParallel(deltaFreqs, borderFreqs, aScale, wab, cwt_matr, St)
     else:
         jobs:mp.JoinableQueue = mp.JoinableQueue()
@@ -231,8 +232,8 @@ def _freqSearch(deltaFreqs: np.ndarray, borderFreqs: np.ndarray,
 def _freqSearchNumbaParallel(deltaFreqs: np.ndarray, borderFreqs: np.ndarray,
                      aScale: np.ndarray, wab: np.ndarray, tr_matr: np.ndarray,
                      St: np.ndarray):
-    for b in prange(St.shape[1]):        # Time
-        for w in prange(St.shape[0]):    # Frequency
+    for b in prange(St.shape[1]):        # type:ignore # Time         
+        for w in prange(St.shape[0]):    # type:ignore # Frequency    
             components = np.logical_and(wab[:,b] > borderFreqs[w],
                                         wab[:,b] <= borderFreqs[w+1])
 

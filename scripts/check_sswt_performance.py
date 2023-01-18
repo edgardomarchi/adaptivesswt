@@ -28,7 +28,6 @@ def test_complexity(stopSignalTime: float = 20) -> np.ndarray:
         wbw=2,
         waveletBounds=(-8, 8),
         threshold=signal.max() / (100),
-        numProc=24,
         plotFilt=False,
     )
 

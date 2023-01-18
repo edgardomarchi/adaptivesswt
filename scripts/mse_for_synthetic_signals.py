@@ -102,9 +102,9 @@ def get_mse_batched(signal:np.ndarray, t:np.ndarray, f:Tuple,
         ### TODO: This code is assuming two frequency components in the signal. It should be generalized.
 
         #### Setup plot ####
-        compFig = plt.figure('Method comparison - '
-                            f"ITL/{kwargs['method']}" if kwargs['itl'] else f"OTL/{kwargs['method']}",
-                            dpi=100)
+        compFig = plt.figure('Method comparison - ' +
+                            (f"ITL/{kwargs['method']}" if kwargs['itl'] else f"OTL/{kwargs['method']}"),
+                            dpi=300)
         if kwargs['itl']==False:
             print(f"OTL {kwargs['method']}, figure:{compFig}")
         gs = compFig.add_gridspec(2, 3)
@@ -120,7 +120,7 @@ def get_mse_batched(signal:np.ndarray, t:np.ndarray, f:Tuple,
 
         for freq in f:
             ifAx.plot(t[: len(signal)], freq)
-        ifAx.set_title('Instaneous frequency')
+        ifAx.set_title('Instantaneous frequency')
 
         spAx.specgram(signal, NFFT=config.numFreqs, Fs=1/config.ts, scale='linear',
                       noverlap=config.numFreqs - 1, cmap='plasma')
@@ -160,7 +160,7 @@ def get_mse_batched(signal:np.ndarray, t:np.ndarray, f:Tuple,
         ifCompAx.plot(t,f2_batch,'-', alpha=0.9, color='red')
 
         for freq in f:
-          ifCompAx.plot(t[: len(signal)], freq,'--' , color='green', label='Inst. Freq.')
+            ifCompAx.plot(t[: len(signal)], freq,'--' , color='green', label='Inst. Freq.')
         ifCompAx.set_title('(a) Instantaneous Frequencies', fontsize=18)
 
         mseCompAx.plot(t[: len(mse_sst)], mse_sst, ':', color='blue', label='SSWT')
@@ -213,8 +213,7 @@ if __name__=="__main__":
         wcf=1,
         wbw=25,
         waveletBounds=(-8, 8),
-        threshold= 1/100,
-        numProc=1
+        threshold= 1/100
     )
 
     ## Configuration for batched version:
@@ -282,7 +281,7 @@ if __name__=="__main__":
                 plots = True
                 axesToPlot = dqcAxes
             if signal_name == 'Sine' and itl:
-                plots = True
+                plots = False
                 axesToPlot = sinAxes
             if signal_name == 'Linear Chirp' and not itl:
                 plots = True
