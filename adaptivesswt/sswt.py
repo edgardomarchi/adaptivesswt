@@ -35,7 +35,7 @@ def sswt(signal: np.ndarray,
          plotFilt: bool=False,
          C_psi: complex = None,
          **kwargs
-         ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+         ) -> Tuple[np.ndarray, np.ndarray, np.ndarray,  np.ndarray, np.ndarray]:
     """Calculates the Synchrosqueezed Wavelet Transform.
 
     Parameters
@@ -70,7 +70,7 @@ def sswt(signal: np.ndarray,
     -------
     tuple
         (St:np.ndarray, cwt:np.ndarray, freqs:np.ndarray, tail:np.ndarray)
-        Matrces with SST and CWT; array with analysis frequencies; and signal tail for overlap (tail is empty if pad is 0).
+        Matrces with SST and CWT; array with analysis frequencies; frequency remmaping matrix, and signal tail for overlap (tail is empty if pad is 0).
     """
 
     #####################
@@ -101,7 +101,7 @@ def sswt(signal: np.ndarray,
 
     #### SSWT ####
     numbaParallel = kwargs.get('numbaParallel', True)
-    St = synchrosqueeze(cwt, freqs, ts, scales, deltaScales, threshold, numProc, numbaParallel)
+    St, wab = synchrosqueeze(cwt, freqs, ts, scales, deltaScales, threshold, numProc, numbaParallel)
     if pad != 0:
         assert C_psi is not None, 'Atention: C_psi is needed if pad is != 0'
         tail = reconstruct(St[:,-maxWavLen:], C_psi, freqs)
@@ -109,12 +109,12 @@ def sswt(signal: np.ndarray,
     else:
         tail, lastIdx = np.array([]), None
 
-    return St[:,:lastIdx], cwt[:,:lastIdx], freqs, tail
+    return St[:,:lastIdx], cwt[:,:lastIdx], freqs, wab, tail
 
 
 def synchrosqueeze(cwt_matr: np.ndarray, freqs: np.ndarray, ts: float, scales: np.ndarray,
                    deltaScales: np.ndarray, threshold: float,
-                   numProc: int, numbaParallel: bool = True):
+                   numProc: int, numbaParallel: bool = True) -> Tuple[np.ndarray, np.ndarray]:
 
     scaleExp = -3/2
     aScale = (scales ** scaleExp) * deltaScales
@@ -127,7 +127,7 @@ def synchrosqueeze(cwt_matr: np.ndarray, freqs: np.ndarray, ts: float, scales: n
     logger.debug("deltaFreqs: \n%s\n", deltaFreqs)
     logger.debug("Frequency band limits: \n%s\n", borderFreqs)
 
-    #%% Map (a,b) -> (w(a,b), b)
+    # Map (a,b) -> (w(a,b), b)
 
     logger.info('Calculating instantaneous frequencies...')
     # Eq. (13) - "The Synchrosqueezing algorithm for time-varying spectral
@@ -152,7 +152,7 @@ def synchrosqueeze(cwt_matr: np.ndarray, freqs: np.ndarray, ts: float, scales: n
     St = np.zeros_like(cwt_matr)
 
     ####################################
-    #%% Sychrosqueezing parallel process
+    # Sychrosqueezing parallel process
     ####################################
 
     if numbaParallel:
@@ -176,7 +176,7 @@ def synchrosqueeze(cwt_matr: np.ndarray, freqs: np.ndarray, ts: float, scales: n
             process.terminate()
     logger.info('Synchrosqueezing Done!')
 
-    return St
+    return St, wab
 
 
 def _create_processes(deltaFreqs, borderFreqs, aScale,
@@ -232,8 +232,8 @@ def _freqSearch(deltaFreqs: np.ndarray, borderFreqs: np.ndarray,
 def _freqSearchNumbaParallel(deltaFreqs: np.ndarray, borderFreqs: np.ndarray,
                      aScale: np.ndarray, wab: np.ndarray, tr_matr: np.ndarray,
                      St: np.ndarray):
-    for b in prange(St.shape[1]):        # type:ignore # Time         
-        for w in prange(St.shape[0]):    # type:ignore # Frequency    
+    for b in prange(St.shape[1]):        # Time
+        for w in prange(St.shape[0]):    # Frequency
             components = np.logical_and(wab[:,b] > borderFreqs[w],
                                         wab[:,b] <= borderFreqs[w+1])
 
@@ -303,9 +303,6 @@ if __name__=='__main__':
     minFreq = 0.1
     numFreqs = 10
 
-    assert fs/len(signal)<= minFreq, 'ATETENTION: Minimum analysis frecuequency is lower than L/N!'
-    print(f'Wav len pre calculated = {fs/minFreq}')
-
     config = Configuration(
         minFreq=minFreq,
         maxFreq=maxFreq,
@@ -324,7 +321,7 @@ if __name__=='__main__':
 
     scales, _, _, _ = calcScalesAndFreqs(ts, config.wcf, config.minFreq, config.maxFreq, config.numFreqs)
 
-    sst, cwt, freqs, tail = sswt(signal, **config.asdict())
+    sst, cwt, freqs, wab, tail = sswt(signal, **config.asdict())
     rentrCWT = renyi_entropy(cwt,2)
     rentrSST = renyi_entropy(sst,2)
     print(f'Rènyi entropy of CWT = {rentrCWT}')

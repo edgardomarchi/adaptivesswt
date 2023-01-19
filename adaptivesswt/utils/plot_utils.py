@@ -30,10 +30,10 @@ def plotFilters(
     width = wav.upper_bound - wav.lower_bound
     max_len = int(np.max(scales) * width + 1)
 
-    fig, ax = plt.subplots(1,dpi=300)
+    fig, ax = plt.subplots(1, dpi=300)
     ax.grid(True, axis='x')
     ax.set_xlabel('[Hz]', loc='right', fontsize=18)
-    fig.suptitle('Signal and wavelets normalized spectra', fontsize=18)
+    fig.suptitle('Signal and wavelets normalized spectra')
 
     for scale in scales:
 
@@ -67,7 +67,7 @@ def plotFilters(
 
 
 def plotSSWTminiBatchs(
-    batchs: List[Tuple[np.ndarray, np.ndarray, np.ndarray]], ax: Axis
+    batchs: List[Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]], ax: Axis
 ):
     """Plots in a packed set of axes the results of the batched ASSWT
 
@@ -85,7 +85,7 @@ def plotSSWTminiBatchs(
     numBatchs = len(batchs)
 
     newAx = ax
-    for i, (asswt, freqs, _) in enumerate(batchs):
+    for i, (asswt, freqs, _, _) in enumerate(batchs):
         batchTime = np.arange(asswt.shape[1])
         if i != 0:
             newAx = divider.new_horizontal(size="100%", pad=0.00)

@@ -34,7 +34,7 @@ def get_mse_batched(signal:np.ndarray, t:np.ndarray, f:Tuple,
 
     entropies = [0.0, 0.0, 0.0, 0.0]
 
-    sst, cwt, freqs, _ = sswt(signal, **config.asdict())
+    sst, cwt, freqs, _, _ = sswt(signal, **config.asdict())
     entropies[0] = renyi_entropy(cwt)
     entropies[1] = renyi_entropy(sst)
     if plots:
@@ -47,7 +47,7 @@ def get_mse_batched(signal:np.ndarray, t:np.ndarray, f:Tuple,
     f1_sst, f2_sst = detect_frequencies(np.abs(sst), freqs, border)
     f1_cwt, f2_cwt = detect_frequencies(np.abs(cwt), freqs, border)
 
-    asst, aFreqs, _ = adaptive_sswt(signal, kwargs['bMaxIters'],
+    asst, aFreqs, _, _ = adaptive_sswt(signal, kwargs['bMaxIters'],
                                     kwargs['method'], kwargs['threshold'],
                                     kwargs['itl'], **config.asdict())
 
@@ -79,7 +79,7 @@ def get_mse_batched(signal:np.ndarray, t:np.ndarray, f:Tuple,
     f2BatchList = []
     entropiesBatchList = []
     # Recover instantaneous frequencies:
-    for (asswtb, freqsb, _) in batchs:
+    for (asswtb, freqsb, _, _) in batchs:
         entropiesBatchList.append(renyi_entropy(asswtb))
         f1b , f2b  = detect_frequencies(asswtb, freqsb, border)
         f1BatchList.append(f1b)
@@ -109,9 +109,13 @@ def get_mse_batched(signal:np.ndarray, t:np.ndarray, f:Tuple,
             print(f"OTL {kwargs['method']}, figure:{compFig}")
         gs = compFig.add_gridspec(2, 3)
         ifAx = plt.subplot(gs[0, 0],)
+        ifAx.set_ylabel('frequency [Hz]',loc='top')
         wtAx = plt.subplot(gs[0, 2],)
+        wtAx.set_xlabel('Time [s]', loc='right')
         spAx = plt.subplot(gs[0, 1],)
         sstAx = plt.subplot(gs[1, 0],)
+        sstAx.set_xlabel('Time [s]', loc='right')
+        sstAx.set_ylabel('frequency [Hz]',loc='top')
         asstAx = plt.subplot(gs[1, 1],)
         bAsstAx = plt.subplot(gs[1, 2],)
         ifAx.get_shared_y_axes().join(wtAx, ifAx, spAx)
@@ -148,7 +152,7 @@ def get_mse_batched(signal:np.ndarray, t:np.ndarray, f:Tuple,
         plotSSWTminiBatchs(batchs, bAsstAx)
 
         ifFig = plt.figure(f"IF - ITL/{kwargs['method']}" if kwargs['itl'] else f"OTL/{kwargs['method']}",
-                           dpi=100)
+                           dpi=300)
         gsIf = ifFig.add_gridspec(1, 2)
         ifCompAx = plt.subplot(gsIf[0, 0],)
         mseCompAx = plt.subplot(gsIf[0,1],)
@@ -161,11 +165,14 @@ def get_mse_batched(signal:np.ndarray, t:np.ndarray, f:Tuple,
 
         for freq in f:
             ifCompAx.plot(t[: len(signal)], freq,'--' , color='green', label='Inst. Freq.')
-        ifCompAx.set_title('(a) Instantaneous Frequencies', fontsize=18)
+        ifCompAx.set_title('(a) Instantaneous Frequencies')
+        ifCompAx.set_ylabel('frequency [Hz]',loc='top')
 
         mseCompAx.plot(t[: len(mse_sst)], mse_sst, ':', color='blue', label='SSWT')
         mseCompAx.plot(t[: len(mse_asst_batch)], mse_asst_batch, '-' , color='red', label='B-ASSWT')
-        mseCompAx.set_title('(b) MSE(t)', fontsize=18)
+        mseCompAx.set_title('(b) MSE(t)')
+        mseCompAx.set_xlabel('Time [s]', loc='right')
+        mseCompAx.set_ylabel('MSE',loc='top')
 
         mseCompAx.legend()
 
@@ -178,7 +185,17 @@ if __name__=="__main__":
     from os.path import abspath, dirname
     from pathlib import Path
 
+    import matplotlib
     import pandas as pd
+    font = {'family' : 'normal',
+            'weight' : 'normal',
+            'size'   : 10}
+
+    matplotlib.rc('font', **font)
+
+    # Uncomment if you have pyqt installed:
+    # import matplotlib
+    # matplotlib.use('Qt5Agg')
 
     from adaptivesswt.utils import signal_utils as generator
 
@@ -261,11 +278,11 @@ if __name__=="__main__":
     # Translate method string from printable to parameter:
     methd = {'thrs':'threshold', 'prop':'proportional'}
 
-    sinFig, sinAxes = plt.subplots(2,2)
+    sinFig, sinAxes = plt.subplots(2,2, dpi=300)
     sinFig.suptitle('Sine')
-    dqcFig, dqcAxes = plt.subplots(2,2)
+    dqcFig, dqcAxes = plt.subplots(2,2, dpi=300)
     dqcFig.suptitle('Dual Quadratic Chirp')
-    lcFig, lcAxes = plt.subplots(2,2)
+    lcFig, lcAxes = plt.subplots(2,2, dpi=300)
     lcFig.suptitle('Linear Chirp')
 
     for signal_name, (f, signal) in signals.items():
@@ -347,12 +364,16 @@ if __name__=="__main__":
         print('----------')
 
     mseIterFig = plt.figure('MSE vs. Maximum Iterations',
-                            dpi=100)
+                            dpi=300)
     gs = mseIterFig.add_gridspec(1, 2)
     asstAx = plt.subplot(gs[0, 0],)
-    asstAx.set_title('ASSWT', fontsize=12)
+    asstAx.set_title('ASSWT')
+    asstAx.set_xlabel('iterations', loc='right')
+    asstAx.set_ylabel('MSE',loc='top')
     bAsstAx = plt.subplot(gs[0, 1],)
-    bAsstAx.set_title('B-ASSWT', fontsize=12)
+    bAsstAx.set_title('B-ASSWT')
+    bAsstAx.set_xlabel('iterations', loc='right')
+    bAsstAx.set_ylabel('MSE',loc='top')
 
     for key, mse in mseASSTIter.items():
         asstAx.plot(iters, mse, label=key)
