@@ -163,10 +163,14 @@ def get_mse_batched(signal:np.ndarray, t:np.ndarray, f:Tuple,
         ifCompAx.plot(t,f1_batch,'-', alpha=0.9, color='red', label='B-ASSWT')
         ifCompAx.plot(t,f2_batch,'-', alpha=0.9, color='red')
 
-        for freq in f:
-            ifCompAx.plot(t[: len(signal)], freq,'--' , color='green', label='Inst. Freq.')
+        for i,freq in enumerate(f):
+            if i==0:
+                ifCompAx.plot(t[: len(signal)], freq,'--' , color='green', label='Inst. Freq.')
+            else:
+                ifCompAx.plot(t[: len(signal)], freq,'--' , color='green')
         ifCompAx.set_title('(a) Instantaneous Frequencies')
         ifCompAx.set_ylabel('frequency [Hz]',loc='top')
+        ifCompAx.legend()
 
         mseCompAx.plot(t[: len(mse_sst)], mse_sst, ':', color='blue', label='SSWT')
         mseCompAx.plot(t[: len(mse_asst_batch)], mse_asst_batch, '-' , color='red', label='B-ASSWT')
@@ -387,5 +391,79 @@ if __name__=="__main__":
     asstAx.legend()
     bAsstAx.legend()
     mseIterFig.savefig(parentDir/'docs/img/mse_vs_iters.pdf')
+
+    #################
+    ## MSE vs SNR: ##
+    #################
+
+    f, signal = signals['Dual Quadratic Chirp']
+
+    std_s = signal.std()
+    snrsNumber = 30
+    stds_n = np.linspace(0, 0.5, snrsNumber, endpoint=False, dtype=float) * std_s
+    snrs = 20*np.log10(1/(stds_n)*std_s)
+
+    print(f'Signal std = {std_s}')
+    print(f'Noise stds = {stds_n}')
+    print(f'SNRs = {snrs}')
+
+    mean = 0
+    num_samples = len(signal)
+
+    bMaxIter = 1
+
+    mseSnrASSTIter = {
+        'ITL/proportional':np.zeros_like(stds_n, dtype=float),
+        'ITL/threshold'   :np.zeros_like(stds_n, dtype=float),
+        'OTL/proportional':np.zeros_like(stds_n, dtype=float),
+        'OTL/threshold'   :np.zeros_like(stds_n, dtype=float)}
+
+    mseSnrBASSTIter = {
+        'ITL/proportional':np.zeros_like(stds_n, dtype=float),
+        'ITL/threshold'   :np.zeros_like(stds_n, dtype=float),
+        'OTL/proportional':np.zeros_like(stds_n, dtype=float),
+        'OTL/threshold'   :np.zeros_like(stds_n, dtype=float)}
+
+    mseSnrSST = np.zeros_like(stds_n, dtype=float)
+
+    for key in mseASSTIter:
+        for i, std_n in enumerate(stds_n):
+            print(f'Analizing {key}, SNR : {snrs[i]}')
+            noise = np.random.normal(mean, std_n, size=num_samples)
+            mse = get_mse_batched(signal+noise, t, f, tr, False, np.array([]), config,
+                                  bLen=bLen, bMaxIters=bMaxIter,
+                                  method=key.split('/')[1], threshold=threshold,
+                                  itl=(True if key.split('/')[0] == 'ITL' else False))
+            print(f'MSE ---> {mse[-2]}')
+            mseSnrASSTIter[key][i] = mse[-3]
+            mseSnrBASSTIter[key][i] = mse[-2]
+            mseSnrSST[i] = mse[1]
+        print(f'MSE: {mseSnrASSTIter[key]}')
+        print('----------')
+
+    mseSnrFig = plt.figure('MSE vs. SNR',
+                            dpi=300)
+    gs = mseSnrFig.add_gridspec(1, 2)
+    asstSnrAx = plt.subplot(gs[0, 0],)
+    asstSnrAx.set_title('ASSWT')
+    asstSnrAx.set_xlabel('SNR [dB]', loc='right')
+    asstSnrAx.set_ylabel('MSE',loc='top')
+    bAsstSnrAx = plt.subplot(gs[0, 1],)
+    bAsstSnrAx.set_title('B-ASSWT')
+    bAsstSnrAx.set_xlabel('SNR [dB]', loc='right')
+    bAsstSnrAx.set_ylabel('MSE',loc='top')
+
+    for key, mse in mseSnrASSTIter.items():
+        asstSnrAx.plot(snrs, mse, label=key)
+    asstSnrAx.plot(snrs, mseSnrSST, ':', label='SSWT')
+
+    for key, mse in mseSnrBASSTIter.items():
+        bAsstSnrAx.plot(snrs, mse, label=key)
+    bAsstSnrAx.plot(snrs, mseSnrSST, ':', label='SSWT')
+
+
+    asstSnrAx.legend()
+    bAsstSnrAx.legend()
+    mseIterFig.savefig(parentDir/'docs/img/mse_vs_snr.pdf')
 
     plt.show()
