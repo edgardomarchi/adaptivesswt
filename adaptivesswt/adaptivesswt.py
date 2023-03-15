@@ -143,17 +143,15 @@ def _calcNumWavelets(
 
     if plotBands:
         fig, axes = plt.subplots(2, 1, sharex=True, dpi=300)
-        axes[0].plot(freqs, abs(spectrum))
-        axes[0].set_title('Signal spectrum', fontsize=18)
-        axes[0].set_ylabel(r'$\hat{E}_{N\!t}$', fontsize=18)
+        axes[0].plot(freqs, abs(spectrum)/abs(spectrum).max())
+        axes[0].set_title('Signal spectrum')
+        axes[0].set_ylabel(r'$\hat{E}_{N\!t}$')
         width = np.min(np.diff(freqs)) * 0.8
         axes[1].bar(freqs, numWavelets, width=width)
-        axes[1].set_ylabel(r'$K^*_k$', fontsize=18)
+        axes[1].set_ylabel(r'$K^*_k$')
         axes[0].text(
-            45, 1, f'k={len(spectrum)}', ha="right", va="top", fontsize=18)
-        #axes[0].legend(f'k={len(spectrum)}', loc='upper right')
-        axes[1].set_xlabel(r'[Hz]', loc='right', fontsize=18)
-        #fig.suptitle(f'K = {len(spectrum)} frequencies')
+            45, 1, f'k={len(spectrum)}', ha="right", va="top")
+        axes[1].set_xlabel(r'[Hz]', loc='right')
 
     return numWavelets
 

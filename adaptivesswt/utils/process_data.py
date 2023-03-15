@@ -114,8 +114,8 @@ def analyze(signal: np.ndarray, config: Configuration,
         Tuple containing the SST, the ASST, the analysis frequencies, the batchs of BASST, and if `plot = True` the figure with TF representations
     """
     time = np.linspace(0, len(signal)*config.ts, len(signal))
-    sst, _, freqs, _ = sswt(signal, **config.asdict())
-    asst, afreqs, _ = adaptive_sswt(signal, iters, method, threshold, itl, **config.asdict())
+    sst, _, freqs, _, _ = sswt(signal, **config.asdict())
+    asst, afreqs, _, _ = adaptive_sswt(signal, iters, method, threshold, itl, **config.asdict())
     batchs = adaptive_sswt_slidingWindow(
         bLen, signal, iters, method, threshold, itl, **config.asdict()
     )
@@ -123,7 +123,7 @@ def analyze(signal: np.ndarray, config: Configuration,
     print(f'Blen = {bLen}, Batchs = {len(batchs)}')
     fig = None
     if plot:
-        fig = plt.figure(figsize=(15,6), dpi=100)
+        fig = plt.figure(figsize=(12,4), dpi=300)
         gs = fig.add_gridspec(1, 3)
         stAx = plt.subplot(gs[0, 0],)
         asAx = plt.subplot(gs[0, 1],)
@@ -131,11 +131,11 @@ def analyze(signal: np.ndarray, config: Configuration,
         stAx.get_shared_y_axes().join(stAx, asAx, baAx)
         stAx.pcolormesh(time, freqs, np.abs(sst), cmap='plasma', shading='gouraud')
         stAx.set_title('SSWT')
-        stAx.set_ylabel('frequency', loc='top')
+        stAx.set_ylabel('frequency [Hz]', loc='top')
         asAx.pcolormesh(time, afreqs, np.abs(asst), cmap='plasma', shading='gouraud')
         asAx.set_title('ASSWT')
         plotSSWTminiBatchs(batchs, baAx)
-        baAx.set_xlabel('time', loc='right')
+        baAx.set_xlabel('time [s]', loc='right')
 
         gs.tight_layout(fig, rect=[0, 0.03, 1, 0.95])
 

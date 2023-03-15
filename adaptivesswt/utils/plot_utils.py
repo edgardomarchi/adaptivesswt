@@ -32,8 +32,8 @@ def plotFilters(
 
     fig, ax = plt.subplots(1, dpi=300)
     ax.grid(True, axis='x')
-    ax.set_xlabel('[Hz]', loc='right', fontsize=18)
-    fig.suptitle('Signal and wavelets normalized spectra')
+    ax.set_xlabel('[Hz]', loc='right')
+    ax.set_title('Signal and wavelets normalized spectra')
 
     for scale in scales:
 

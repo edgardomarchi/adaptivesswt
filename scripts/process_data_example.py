@@ -24,6 +24,14 @@ from os.path import abspath, dirname
 from pathlib import Path
 from zipfile import ZipFile
 
+import matplotlib
+
+font = {'family' : 'normal',
+        'weight' : 'normal',
+        'size'   : 10}
+
+matplotlib.rc('font', **font)
+
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -37,7 +45,6 @@ logging.basicConfig(format='%(levelname)s - %(asctime)s - %(name)s - %(message)s
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
-plt.rcParams.update({'font.size': 16})
 parentDir = Path(dirname(dirname(abspath(__file__))))
 
 # Command line arguments
@@ -132,7 +139,7 @@ signalPCGSynth = reconstruct(aSstPCG, configPCG.C_psi, freqsPCG)
 sstSignalPCGSynth = reconstruct(sstPCG, configPCG.C_psi, sstFreqs)
 
 signalPCGBSynthList = []
-for (bAsstPCG, bFreqsPCG, _) in pcgBatchs:
+for (bAsstPCG, bFreqsPCG, _, _) in pcgBatchs:
     signalPCGBSynthList.append(reconstruct(bAsstPCG, configPCG.C_psi, bFreqsPCG))
 
 signalPCGBSynth = np.array(signalPCGBSynthList[1:-1]).flatten()
@@ -140,7 +147,7 @@ signalPCGBSynth = np.concatenate(
     (signalPCGBSynthList[0], signalPCGBSynth, signalPCGBSynthList[-1])
 )
 
-fig, ax = plt.subplots(1, 1)
+fig, ax = plt.subplots(1, 1, dpi=dpi)
 ax.plot(time, -1 * data.ecg / abs(data.ecg).max(), label='ECG')
 ax.plot(
     time[:: int(data.fs / pcgFs)],
@@ -215,7 +222,7 @@ if plotPulse:
 signalPulseSynth = reconstruct(aSstPulse, configPulse.C_psi, freqsPulse)
 
 signalPulseBSynthList = []
-for (bAsstPulse, bFreqsPulse, _) in pulseBatchs:
+for (bAsstPulse, bFreqsPulse, _, _) in pulseBatchs:
     signalPulseBSynthList.append(
         reconstruct(bAsstPulse, configPulse.C_psi, bFreqsPulse)
     )
@@ -225,7 +232,7 @@ signalPulseBSynth = np.concatenate(
     (signalPulseBSynthList[0], signalPulseBSynth, signalPulseBSynthList[-1])
 )
 
-fig, ax = plt.subplots(1, 1)
+fig, ax = plt.subplots(1, 1, dpi=dpi)
 ax.plot(time, -1 * data.ecg / abs(data.ecg).max(), label='ECG')
 ax.plot(
     time[:: int(data.fs / pulseFs)],
@@ -291,7 +298,7 @@ signalRespSynth = reconstruct(aSstResp, configResp.C_psi, freqsResp)
 sstSignalRespSynth = reconstruct(sstResp, configResp.C_psi, sstFreqs)
 
 signalRespBSynthList = []
-for (bAsstResp, bFreqsResp, _) in respBatchs:
+for (bAsstResp, bFreqsResp, _, _) in respBatchs:
     signalRespBSynthList.append(reconstruct(bAsstResp, configResp.C_psi, bFreqsResp))
 
 signalRespBSynth = np.array(signalRespBSynthList[1:-1]).flatten()
@@ -299,7 +306,7 @@ signalRespBSynth = np.concatenate(
     (signalRespBSynthList[0], signalRespBSynth, signalRespBSynthList[-1])
 )
 
-fig, ax = plt.subplots(1, 1)
+fig, ax = plt.subplots(1, 1, dpi=dpi)
 ax.plot(
     time, -1 * data.resp / data.resp.max(), label='Respiration (thermal)'
 )  # Gets inverted due thermal method
