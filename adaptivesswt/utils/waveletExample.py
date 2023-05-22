@@ -3,21 +3,20 @@
 """
 Script adapted from PyWavelets to print wavelets filters and longitudes.
 """
+import matplotlib.pyplot as plt
 import numpy as np
 import pywt
-import matplotlib.pyplot as plt
-
 
 plt.close('all')
 
 fs = 2000  #Hz
 
-wcf=0.5
-wbw=2#16.0
+wcf=1
+wbw=1#16.0
 
 wav = pywt.ContinuousWavelet(f'cmor{wbw}-{wcf}')
-wav.lower_bound = -3
-wav.upper_bound = 3
+wav.lower_bound = -8
+wav.upper_bound = 8
 
 print(wav)
 
@@ -35,7 +34,7 @@ numScales = 10
 print(f'Max scale: {maxScale}, Min scale: {minScale}')
 scales = np.linspace(minScale, maxScale, numScales)
 
-precision = 7
+precision = 8
 
 max_len = int(np.max(scales)*width + 1)
 t = np.arange(max_len)
@@ -48,11 +47,23 @@ step = x[1] - x[0]
 plt.figure('Int psi')
 plt.plot(x,int_psi.real)
 plt.plot(x,int_psi.imag)
+
 plt.figure('Psi')
 wavefun, y = wav.wavefun(level=precision)
 plt.plot(y,wavefun.real)
 plt.plot(y,wavefun.imag)
 print(f'Len of int_psi = {len(x)}; len of psi = {len(y)}')
+
+plt.figure('Cum sum')
+plt.plot(x, np.cumsum(abs(int_psi))/np.sum(abs(int_psi)), label='int_psi')
+plt.plot(y, np.cumsum(abs(wavefun))/np.sum(abs(wavefun)), label='wavefun')
+plt.legend()
+
+plt.figure('fft of mother wavelet')
+f = np.linspace(-np.pi, np.pi, int_psi.shape[0])
+mw_fft = np.fft.fftshift(np.fft.fft(wavefun))
+mw_fft /= np.abs(mw_fft).max()
+plt.plot(f,abs(mw_fft))
 
 for n, scale in enumerate(scales):
 
@@ -76,7 +87,7 @@ for n, scale in enumerate(scales):
     # Here we plot this discrete convolution kernel at each scale.
 
     nt = len(filt)
-    
+
     print(f'Scale: {scale:.3f}, longitude: {nt}, time: {nt/fs}')
     t = np.linspace(-nt//2, nt//2, nt)
     axes[n, 0].plot(t, filt.real, t, filt.imag)

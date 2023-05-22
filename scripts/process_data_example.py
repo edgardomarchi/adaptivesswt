@@ -147,24 +147,28 @@ signalPCGBSynth = np.concatenate(
     (signalPCGBSynthList[0], signalPCGBSynth, signalPCGBSynthList[-1])
 )
 
-fig, ax = plt.subplots(1, 1, dpi=dpi)
-ax.plot(time, -1 * data.ecg / abs(data.ecg).max(), label='ECG')
-ax.plot(
+fig, ax = plt.subplots(4, 1, sharex=True)
+ax[0].plot(time, -1 * data.ecg / abs(data.ecg).max(), label='ECG')
+ax[0].plot(time, -1 * data.pcg / abs(data.pcg).max(), label='PCG')
+ax[1].plot(
     time[:: int(data.fs / pcgFs)],
     sstSignalPCGSynth / abs(sstSignalPCGSynth)[200:-200].max(),
     label=f'SSWT - Radar',
 )
-ax.plot(
+ax[2].plot(
     time[:: int(data.fs / pcgFs)],
     signalPCGSynth / abs(signalPCGSynth)[200:-200].max(),
+    'g',
     label=f'SSWT ADPT - Radar',
 )
-ax.plot(
+ax[3].plot(
     time[:: int(data.fs / pcgFs)],
     signalPCGBSynth / abs(signalPCGBSynth[200:-200]).max(),
+    'r',
     label=f'SSWT B-ADPT - Radar',
 )
-ax.legend()
+for axis in ax:
+    axis.legend()
 fig.suptitle('PCG')
 
 
