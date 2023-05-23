@@ -1,16 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 import logging
-
-logger = logging.getLogger(__name__)
-
 import multiprocessing as mp
 from typing import Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
 import pywt
-import scipy.signal as sp
 from numba import njit, prange, set_num_threads
 
 from .utils.freq_utils import (
@@ -21,6 +17,7 @@ from .utils.freq_utils import (
 )
 from .utils.plot_utils import plotFilters
 
+logger = logging.getLogger(__name__)
 
 def sswt(signal: np.ndarray,
          minFreq: float,
@@ -101,7 +98,11 @@ def sswt(signal: np.ndarray,
 
     #### SSWT ####
     numbaParallel = kwargs.get('numbaParallel', True)
-    St, wab = synchrosqueeze(cwt, freqs, ts, scales, deltaScales, threshold, numProc, numbaParallel)
+    if kwargs.get('tsst', False):
+        St, wab = timesynchrosqueeze(cwt, freqs, ts, scales, deltaScales, threshold, numProc)
+    else:
+        St, wab = synchrosqueeze(cwt, freqs, ts, scales, deltaScales, threshold, numProc, numbaParallel)
+
     if pad != 0:
         assert C_psi is not None, 'Atention: C_psi is needed if pad is != 0'
         tail = reconstruct(St[:,-maxWavLen:], C_psi, freqs)
@@ -109,7 +110,7 @@ def sswt(signal: np.ndarray,
     else:
         tail, lastIdx = np.array([]), None
 
-    return St[:,:lastIdx], cwt[:,:lastIdx], freqs, wab, tail
+    return St[:,:lastIdx], cwt[:,:lastIdx], freqs, wab[:,:lastIdx], tail
 
 
 def synchrosqueeze(cwt_matr: np.ndarray, freqs: np.ndarray, ts: float, scales: np.ndarray,
@@ -142,7 +143,7 @@ def synchrosqueeze(cwt_matr: np.ndarray, freqs: np.ndarray, ts: float, scales: n
     # Eq. (7) - "Adaptive synchrosqueezing based on a quilted short time
     # Fourier transform" - A. Berrian, N. Saito:
     #
-    cwt_matr_p = np.roll(cwt_matr,-1)
+    cwt_matr_p = np.roll(cwt_matr,-1, axis=1)
     cwt_matr_p[:,-1] = 0
     wab = np.angle(np.divide(cwt_matr_p, cwt_matr,
                              out=np.zeros_like(cwt_matr),
@@ -177,6 +178,55 @@ def synchrosqueeze(cwt_matr: np.ndarray, freqs: np.ndarray, ts: float, scales: n
     logger.info('Synchrosqueezing Done!')
 
     return St, wab
+
+def timesynchrosqueeze(cwt_matr: np.ndarray, freqs: np.ndarray, ts: float, scales: np.ndarray,
+                       deltaScales: np.ndarray, threshold: float,
+                       numProc: int) -> Tuple[np.ndarray, np.ndarray]:
+
+    scaleExp = -3/2
+    aScale = (scales ** scaleExp) * deltaScales
+    logger.debug('a_k^{%s} * da_k: \n%s\n', scaleExp, aScale)
+
+    #### Frecuencies ####
+    #deltaFreqs, borderFreqs = getDeltaAndBorderFreqs(freqs)
+
+    time = np.linspace(0, ts*cwt_matr.shape[1], cwt_matr.shape[1], endpoint=False)
+
+    # Map (a,b) -> (w(a,b), b)
+
+    logger.info('Calculating instantaneous times...')
+    # Eq. (13) - "The Synchrosqueezing algorithm for time-varying spectral
+    # analysis: robustness properties and new paleoclimate applications" -
+    # G. Thakur, E. Brevdo, N. S. Fučkar, and Hau-Tieng Wu:
+    #
+    dCWT_t = np.gradient(cwt_matr, freqs, axis=0)
+    tab = np.zeros_like(cwt_matr, dtype='float64') + time
+    pos = abs(cwt_matr) > threshold
+    tab[pos] -= 1 * np.imag(dCWT_t[pos] / cwt_matr[pos]) / (2* np.pi)
+    tab[np.logical_not(pos)]=0
+    # tab /= (freqs[::-1,np.newaxis])
+
+    # Eq. (7) - "Adaptive synchrosqueezing based on a quilted short time
+    # Fourier transform" - A. Berrian, N. Saito:
+    #
+    # cwt_matr_p = np.roll(cwt_matr,-1, axis=0)
+    # cwt_matr_p[-1,:] = 0
+    # tab = 1 * np.angle(np.divide(cwt_matr_p, cwt_matr,
+    #                     out=np.zeros_like(cwt_matr),
+    #                     where=abs(cwt_matr)>threshold)) # / (freqs[:,np.newaxis]) * np.pi
+    # Last term is added in order to convert from normalized omega to frecuency in Hz
+
+    Tsst = np.zeros_like(cwt_matr)
+
+    ####################################
+    # Sychrosqueezing parallel process
+    ####################################
+
+    set_num_threads(numProc)
+    _timeSearchNumbaParallel(ts, time, aScale, tab, cwt_matr, Tsst)
+    logger.info('Time-synchrosqueezing Done!')
+
+    return Tsst, tab
 
 
 def _create_processes(deltaFreqs, borderFreqs, aScale,
@@ -239,6 +289,18 @@ def _freqSearchNumbaParallel(deltaFreqs: np.ndarray, borderFreqs: np.ndarray,
 
             St[w,b] = (tr_matr[components,b] * aScale[components]).sum() / deltaFreqs[w]
 
+
+@njit(parallel=True, fastmath=True)
+def _timeSearchNumbaParallel(ts: float, time: np.ndarray,
+                     aScale: np.ndarray, tab: np.ndarray, tr_matr: np.ndarray,
+                     Tsst: np.ndarray):
+    for w in prange(Tsst.shape[0]):        # Frequency
+        for b in prange(Tsst.shape[1]):    # Time
+            components = np.logical_and(tab[w,:] > time[b],
+                                        tab[w,:] <= time[b+1])
+
+            Tsst[w,b] = (tr_matr[w,components]).sum() / ts
+
 def reconstruct(sst: np.ndarray, C_psi: complex,
                 freqs: np.ndarray)-> np.ndarray:
     """Reconstruct signal from its SSWT
@@ -297,7 +359,7 @@ if __name__=='__main__':
     # signal[fs:2*fs]=1.0
 
     wcf = 1
-    wbw = 1
+    wbw = 2
 
     maxFreq = 11
     minFreq = 0.1
@@ -336,6 +398,7 @@ if __name__=='__main__':
     mainAxes[0,0].plot(t[:len(signal)], signal)
     mainAxes[0,0].set_title('Signal')
 
+
     mainAxes[1,0].pcolormesh(t, freqs, np.abs(cwt), cmap='viridis', shading='gouraud')
     mainAxes[1,0].set_title('Wavelet Transform')
     mainAxes[1,1].pcolormesh(t, freqs, np.abs(sst), cmap='viridis', shading='gouraud')
@@ -350,6 +413,17 @@ if __name__=='__main__':
     mainAxes[0, 1].plot(t, -1*signalR_sst, label='SST')
     mainAxes[0, 1].legend()
     mainAxes[0, 1].set_title('Reconstructed signal')
+
+    tsstFig, tsstAx = plt.subplots(1,2)
+    # signal = np.zeros_like(t)
+    pulse_width = 10
+    pulse_start, pulse_stop = int(len(t)//5), int(len(t)//5) + pulse_width
+    # signal[pulse_start:pulse_stop]=1
+    tsst, cwt, freqs, tab, tail = sswt(signal, **config.asdict(), tsst=True)
+    tsstAx[0].pcolormesh(t, freqs, np.abs(cwt), cmap='viridis', shading='gouraud')
+    tsstAx[0].set_title('Wavelet Transform')
+    tsstAx[1].pcolormesh(t, freqs, np.abs(tsst), cmap='viridis', shading='gouraud')
+    tsstAx[1].set_title('Time synchrosqueezing Transform')
 
     import timeit
     passes = 2
