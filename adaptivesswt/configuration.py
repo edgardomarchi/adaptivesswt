@@ -5,7 +5,7 @@ import logging
 logger = logging.getLogger()
 
 import multiprocessing as mp
-from dataclasses import asdict, dataclass, fields
+from dataclasses import dataclass, fields
 from typing import Optional, Tuple, Union
 
 import numpy as np
@@ -50,6 +50,7 @@ class Configuration:
     int_psi: Optional[np.ndarray] = None
     int_step: Optional[float] = None
     C_psi: complex = 1
+    transform: str = 'sst' # 'sst', 'tsst', 'tfr'
 
     def __post_init__(self):
         self.wav = pywt.ContinuousWavelet(f'cmor{self.wbw}-{self.wcf}')

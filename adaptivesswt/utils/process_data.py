@@ -85,7 +85,7 @@ def intDecimate(signal: np.ndarray, fs: float,
 
 def analyze(signal: np.ndarray, config: Configuration,
             iters: int=0, method: str='threshold', threshold: float = 1/100, itl: bool=False,
-            bLen: int=256, plot: bool=True
+            bLen: int=256, plot: bool=True, tsst=False
             ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, list, Union[plt.Figure, None]]:
     """Analyzes the signal with the adaptive SSWT
 
@@ -114,10 +114,10 @@ def analyze(signal: np.ndarray, config: Configuration,
         Tuple containing the SST, the ASST, the analysis frequencies, the batchs of BASST, and if `plot = True` the figure with TF representations
     """
     time = np.linspace(0, len(signal)*config.ts, len(signal))
-    sst, _, freqs, _, _ = sswt(signal, **config.asdict())
-    asst, afreqs, _, _ = adaptive_sswt(signal, iters, method, threshold, itl, **config.asdict())
+    sst, _, freqs, _, _ = sswt(signal, **config.asdict(), tsst=tsst)
+    asst, afreqs, _, _ = adaptive_sswt(signal, iters, method, threshold, itl, **config.asdict(), tsst=tsst)
     batchs = adaptive_sswt_slidingWindow(
-        bLen, signal, iters, method, threshold, itl, **config.asdict()
+        bLen, signal, iters, method, threshold, itl, **config.asdict(), tsst=tsst
     )
 
     print(f'Blen = {bLen}, Batchs = {len(batchs)}')

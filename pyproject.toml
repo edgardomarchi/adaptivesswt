@@ -18,7 +18,7 @@ keywords = ["Synchrosqueezing", "Wavelet", "Transform", "DSP"
 
 [tool.poetry.dependencies]
 
-python = ">=3.8,<3.11"
+python = ">=3.10,<3.11"
 pywavelets = "^1.2"
 numpy = "^1"
 scipy = "*"

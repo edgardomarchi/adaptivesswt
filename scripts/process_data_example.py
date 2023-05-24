@@ -116,7 +116,7 @@ pcgBLen = int(
 bPad = int(pcgBLen * 0.9)
 configPCG.pad = bPad
 
-plotPCG = False
+plotPCG = True
 
 sstPCG, aSstPCG, freqsPCG, pcgBatchs, pcgFig = analyze(
     signalPCG,
@@ -127,6 +127,7 @@ sstPCG, aSstPCG, freqsPCG, pcgBatchs, pcgFig = analyze(
     pcgItl,
     pcgBLen,
     plot=plotPCG,
+    tsst=True
 )
 if plotPCG:
     pcgFig.suptitle('PCG')  # type: ignore

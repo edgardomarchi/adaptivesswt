@@ -564,21 +564,21 @@ def main():
     # f, sig = generator.testChirp(t, 10, 25)
     # _, sig = testUpDownChirp(t,1,10)
     # f, sig = generator.quadraticChirp(t, 40, 30)
-    # frqs, sig = generator.dualQuadraticChirps(t, (28, 30), (42, 38))
+    frqs, sig = generator.dualQuadraticChirps(t, (28, 30), (42, 38))
     # f, sig = generator.testSig(t)
-    frqs, sig = generator.tritone(t, 20, 10 * np.pi, 40)
+    # frqs, sig = generator.tritone(t, 20, 10 * np.pi, 40)
     # f, sig = generator.testSine(t,15)
     # f = 15*np.ones_like(t)
     # sig = generator.delta(t, 2)
-    # fqs, sig = generator.crossChrips(t, 1, 20, 4)
+    # frqs, sig = generator.crossChrips(t, 20, 40, 3)
     # f = fqs[0]
     # sig = sig[:signalLen]
     # f = f[:signalLen]
 
-    f1, f2, f3 = frqs
+    f1, f2 = frqs
     ifAx.plot(t[: len(sig)], f1)
     ifAx.plot(t[: len(sig)], f2)
-    ifAx.plot(t[: len(sig)], f3)
+    # ifAx.plot(t[: len(sig)], f3)
     ifAx.set_title('Instantaneous frequency')
 
     #%% SSWT, CWT and Spectrogram
