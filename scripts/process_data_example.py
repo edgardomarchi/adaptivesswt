@@ -92,15 +92,15 @@ dpi = 300
 #### PCG
 logger.info('Analizing PCG frequencies...')
 configPCG = Configuration(
-    minFreq=15,
-    maxFreq=200,
-    numFreqs=50,
+    min_freq=15,
+    max_freq=200,
+    num_freqs=50,
     ts=1 / pcgFs,
     wcf=1,
     wbw=8,
-    waveletBounds=(-8, 8),
+    wavelet_bounds=(-8, 8),
     threshold=abs(signalPCG).max() / 1e6,
-    numProc=4,
+    num_processes=4,
 )
 
 pcgIters = 2
@@ -133,15 +133,15 @@ if plotPCG:
     pcgFig.suptitle('PCG')  # type: ignore
 
 _, sstFreqs, _, _ = calcScalesAndFreqs(
-    respFs, configPCG.wcf, configPCG.minFreq, configPCG.maxFreq, configPCG.numFreqs
+    respFs, configPCG.wcf, configPCG.min_freq, configPCG.max_freq, configPCG.num_freqs
 )
 
-signalPCGSynth = reconstruct(aSstPCG, configPCG.C_psi, freqsPCG)
-sstSignalPCGSynth = reconstruct(sstPCG, configPCG.C_psi, sstFreqs)
+signalPCGSynth = reconstruct(aSstPCG, configPCG.c_psi, freqsPCG)
+sstSignalPCGSynth = reconstruct(sstPCG, configPCG.c_psi, sstFreqs)
 
 signalPCGBSynthList = []
 for (bAsstPCG, bFreqsPCG, _, _) in pcgBatchs:
-    signalPCGBSynthList.append(reconstruct(bAsstPCG, configPCG.C_psi, bFreqsPCG))
+    signalPCGBSynthList.append(reconstruct(bAsstPCG, configPCG.c_psi, bFreqsPCG))
 
 signalPCGBSynth = np.array(signalPCGBSynthList[1:-1]).flatten()
 signalPCGBSynth = np.concatenate(
@@ -176,15 +176,15 @@ fig.suptitle('PCG')
 #### Pulse
 logger.info('Analizing Pulse frequencies...')
 configPulse = Configuration(
-    minFreq=1,
-    maxFreq=3,
-    numFreqs=16,
+    min_freq=1,
+    max_freq=3,
+    num_freqs=16,
     ts=1 / pulseFs,
     wcf=1,
     wbw=10,
-    waveletBounds=(-8, 8),
+    wavelet_bounds=(-8, 8),
     threshold=abs(signalPulse).max() / 1e5,
-    numProc=4,
+    num_processes=4,
 )
 
 pulseIters = 1
@@ -224,12 +224,12 @@ if plotPulse:
         bbox_inches='tight',
     )
 
-signalPulseSynth = reconstruct(aSstPulse, configPulse.C_psi, freqsPulse)
+signalPulseSynth = reconstruct(aSstPulse, configPulse.c_psi, freqsPulse)
 
 signalPulseBSynthList = []
 for (bAsstPulse, bFreqsPulse, _, _) in pulseBatchs:
     signalPulseBSynthList.append(
-        reconstruct(bAsstPulse, configPulse.C_psi, bFreqsPulse)
+        reconstruct(bAsstPulse, configPulse.c_psi, bFreqsPulse)
     )
 
 signalPulseBSynth = np.array(signalPulseBSynthList[1:-1]).flatten()
@@ -255,17 +255,17 @@ fig.suptitle('Pulse')
 #### Respiration:
 logger.info('Analizing Respiration frequencies...')
 configResp = Configuration(
-    minFreq=0.2 * respFs / len(signalResp),
-    maxFreq=1,
-    numFreqs=16,
+    min_freq=0.2 * respFs / len(signalResp),
+    max_freq=1,
+    num_freqs=16,
     ts=1 / respFs,
     wcf=1,
     wbw=10,
-    waveletBounds=(-8, 8),
+    wavelet_bounds=(-8, 8),
     threshold=abs(signalResp).max() / 10000,
-    numProc=4,
+    num_processes=4,
 )
-print(f'Min freq: {configResp.minFreq}')
+print(f'Min freq: {configResp.min_freq}')
 
 respIters = 1
 respMethod = 'proportional'
@@ -296,15 +296,15 @@ if plotResp:
     respFig.suptitle('Respiration')  # type: ignore
 
 _, sstFreqs, _, _ = calcScalesAndFreqs(
-    respFs, configResp.wcf, configResp.minFreq, configResp.maxFreq, configResp.numFreqs
+    respFs, configResp.wcf, configResp.min_freq, configResp.max_freq, configResp.num_freqs
 )
 
-signalRespSynth = reconstruct(aSstResp, configResp.C_psi, freqsResp)
-sstSignalRespSynth = reconstruct(sstResp, configResp.C_psi, sstFreqs)
+signalRespSynth = reconstruct(aSstResp, configResp.c_psi, freqsResp)
+sstSignalRespSynth = reconstruct(sstResp, configResp.c_psi, sstFreqs)
 
 signalRespBSynthList = []
 for (bAsstResp, bFreqsResp, _, _) in respBatchs:
-    signalRespBSynthList.append(reconstruct(bAsstResp, configResp.C_psi, bFreqsResp))
+    signalRespBSynthList.append(reconstruct(bAsstResp, configResp.c_psi, bFreqsResp))
 
 signalRespBSynth = np.array(signalRespBSynthList[1:-1]).flatten()
 signalRespBSynth = np.concatenate(

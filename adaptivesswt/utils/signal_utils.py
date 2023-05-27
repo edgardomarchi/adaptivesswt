@@ -222,8 +222,8 @@ def quadraticChirp(t: np.ndarray, fmin: float, fmax: float) -> Tuple[Tuple[np.nd
                       vertex_zero=False)
 
 
-def dualQuadraticChirps(t: np.ndarray, start_and_vertex_freqs1: Tuple,
-                        start_and_vertex_freqs2: Tuple
+def dualQuadraticChirps(t: np.ndarray,
+                        start_and_vertex_freqs1: Tuple, start_and_vertex_freqs2: Tuple
                        ) -> Tuple[Tuple[np.ndarray, np.ndarray], np.ndarray]:
     """Dual quadratic chirp signals
 

@@ -20,22 +20,22 @@ def test_complexity(stopSignalTime: float = 20) -> np.ndarray:
     _, signal = generator.quadraticChirp(t, 3, 7)
 
     config = Configuration(
-        minFreq=1,
-        maxFreq=10,
-        numFreqs=32,
+        min_freq=1,
+        max_freq=10,
+        num_freqs=32,
         ts=1/2000,
         wcf=1,
         wbw=2,
-        waveletBounds=(-8, 8),
+        wavelet_bounds=(-8, 8),
         threshold=signal.max() / (100),
-        plotFilt=False,
+        plot_filters=False,
     )
 
     timingsProc = np.empty(cpu_count())
     passes = 4
 
     for i in np.arange(cpu_count()) + 1:
-        config.numProc = i
+        config.num_processes = i
         sswt_fix = lambda: sswt(signal, **config.asdict())
         timingsProc[i - 1] = (
             timeit.timeit(sswt_fix, number=passes) / passes / stopTime / fs
@@ -56,16 +56,16 @@ def ckeck_complexity_distribution(maxSignalTime: float = 20, n_steps: int=10,
     asst_times = np.zeros_like(maxSignalTimes)
 
     config = Configuration(
-            minFreq=1,
-            maxFreq=10,
-            numFreqs=32,
+            min_freq=1,
+            max_freq=10,
+            num_freqs=32,
             ts=1/2000,
             wcf=1,
             wbw=2,
-            waveletBounds=(-8, 8),
+            wavelet_bounds=(-8, 8),
             threshold=1/10,
-            numProc=24,
-            plotFilt=False,
+            num_processes=24,
+            plot_filters=False,
         )
     thrsh = 1/5
 

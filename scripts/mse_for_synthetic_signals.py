@@ -30,7 +30,7 @@ def get_mse_batched(signal:np.ndarray, t:np.ndarray, f:Tuple,
                     transform:Callable, plots: bool, ax: np.ndarray,
                     config:Configuration, **kwargs):
 
-    border = None if len(f)==1 else (config.maxFreq + config.minFreq)/2
+    border = None if len(f)==1 else (config.max_freq + config.min_freq)/2
 
     entropies = [0.0, 0.0, 0.0, 0.0]
 
@@ -126,10 +126,10 @@ def get_mse_batched(signal:np.ndarray, t:np.ndarray, f:Tuple,
             ifAx.plot(t[: len(signal)], freq)
         ifAx.set_title('Instantaneous frequency')
 
-        spAx.specgram(signal, NFFT=config.numFreqs, Fs=1/config.ts, scale='linear',
-                      noverlap=config.numFreqs - 1, cmap='plasma')
+        spAx.specgram(signal, NFFT=config.num_freqs, Fs=1/config.ts, scale='linear',
+                      noverlap=config.num_freqs - 1, cmap='plasma')
         spAx.set_title('Spectrogram')
-        spAx.set_ylim([config.minFreq, config.maxFreq])
+        spAx.set_ylim([config.min_freq, config.max_freq])
 
         wtAx.pcolormesh(t, freqs, np.abs(cwt), cmap='plasma', shading='gouraud')
         wtAx.set_title('Wavelet Transform')
@@ -227,13 +227,13 @@ if __name__=="__main__":
     }
 
     config = Configuration(
-        minFreq=20,
-        maxFreq=50,
-        numFreqs=12,
+        min_freq=20,
+        max_freq=50,
+        num_freqs=12,
         ts=ts,
         wcf=1,
         wbw=25,
-        waveletBounds=(-8, 8),
+        wavelet_bounds=(-8, 8),
         threshold= 1/100
     )
 

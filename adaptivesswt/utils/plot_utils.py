@@ -4,12 +4,15 @@ from typing import List, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
-from matplotlib.axis import Axis
+from matplotlib.axes import Axes
 from mpl_toolkits.axes_grid1 import make_axes_locatable
-from pywt import ContinuousWavelet, integrate_wavelet
+from pywt import (  # type: ignore # Pylance seems to fail finding ContinuousWavelet within pywt
+    ContinuousWavelet,
+    integrate_wavelet,
+)
 
 
-def plotFilters(
+def plot_cwt_filters(
     wav: ContinuousWavelet, scales: np.ndarray, ts: float, signal: np.ndarray
 ):
     """Plotea los espectros de las wavelets seleccionadas.
@@ -38,7 +41,7 @@ def plotFilters(
     for scale in scales:
 
         # The following code is adapted from the internals of cwt
-        int_psi, x = integrate_wavelet(wav, precision=8)
+        int_psi, x = integrate_wavelet(wav, precision=8)   # type: ignore # integrate wavelet always operates with a ContinuousWavelet object
         step = x[1] - x[0]
         j = np.floor(np.arange(scale * width + 1) / (scale * step))
         if np.max(j) >= np.size(int_psi):
@@ -67,8 +70,8 @@ def plotFilters(
 
 
 def plotSSWTminiBatchs(
-    batchs: List[Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]], ax: Axis
-):
+    batchs: List[Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]],
+    ax: Axes):
     """Plots in a packed set of axes the results of the batched ASSWT
 
     Parameters
@@ -90,11 +93,11 @@ def plotSSWTminiBatchs(
         if i != 0:
             newAx = divider.new_horizontal(size="100%", pad=0.00)
             newAx.yaxis.set_visible(False)
+            newAx.sharey(ax)
             fig.add_axes(newAx)
-            ax.get_shared_y_axes().join(ax, newAx)
+            #ax.get_shared_y_axes().join(ax, newAx)
         newAx.pcolormesh(
-            batchTime, freqs, np.abs(asswt), cmap='plasma', shading='gouraud'
-        )
+            batchTime, freqs, np.abs(asswt), cmap='plasma', shading='gouraud')
         newAx.tick_params(
             axis='x',          # changes apply to the x-axis
             which='both',      # both major and minor ticks are affected
