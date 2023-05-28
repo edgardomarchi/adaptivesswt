@@ -11,7 +11,7 @@ from adaptivesswt.adaptivesswt import (
 from adaptivesswt.configuration import Configuration
 from adaptivesswt.sswt import sswt
 from adaptivesswt.utils.measures_utils import renyi_entropy
-from adaptivesswt.utils.plot_utils import plotSSWTminiBatchs
+from adaptivesswt.utils.plot_utils import plot_batched_tf_repr
 
 
 def detect_frequencies(tr_matr, freqs, border=None):
@@ -96,7 +96,7 @@ def get_mse_batched(signal:np.ndarray, t:np.ndarray, f:Tuple,
     mse_asst_batch_total = mse_asst_batch.sum() / len(mse_asst_batch)
 
     if plots:
-        plotSSWTminiBatchs(batchs, ax[1,1])
+        plot_batched_tf_repr(batchs, ts, ax[1,1])
         ax[1,1].set_title('B-ASST')
 
         ### TODO: This code is assuming two frequency components in the signal. It should be generalized.
@@ -149,7 +149,7 @@ def get_mse_batched(signal:np.ndarray, t:np.ndarray, f:Tuple,
         # asstAx.plot(t,f1_asst,'--', color='red')
         # asstAx.plot(t,f2_asst,'--', color='orange')
 
-        plotSSWTminiBatchs(batchs, bAsstAx)
+        plot_batched_tf_repr(batchs, ts, bAsstAx)
 
         ifFig = plt.figure(f"IF - ITL/{kwargs['method']}" if kwargs['itl'] else f"OTL/{kwargs['method']}",
                            dpi=300)

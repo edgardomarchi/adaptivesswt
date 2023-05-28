@@ -16,7 +16,7 @@ from adaptivesswt.adaptivesswt import adaptive_sswt, adaptive_sswt_slidingWindow
 from adaptivesswt.configuration import Configuration
 from adaptivesswt.sswt import sswt
 from adaptivesswt.utils.import_utils import MeasurementData
-from adaptivesswt.utils.plot_utils import plotSSWTminiBatchs
+from adaptivesswt.utils.plot_utils import plot_batched_tf_repr
 
 logger = logging.getLogger(__name__)
 
@@ -134,7 +134,7 @@ def analyze(signal: np.ndarray, config: Configuration,
         stAx.set_ylabel('frequency [Hz]', loc='top')
         asAx.pcolormesh(time, afreqs, np.abs(asst), cmap='plasma', shading='gouraud')
         asAx.set_title('ASSWT')
-        plotSSWTminiBatchs(batchs, baAx)
+        plot_batched_tf_repr(batchs, config.ts, baAx)
         baAx.set_xlabel('time [s]', loc='right')
 
         gs.tight_layout(fig, rect=[0, 0.03, 1, 0.95])

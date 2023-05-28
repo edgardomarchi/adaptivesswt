@@ -18,13 +18,18 @@ keywords = ["Synchrosqueezing", "Wavelet", "Transform", "DSP"
 
 [tool.poetry.dependencies]
 
-python = ">=3.10,<3.11"
+python = "^3.10"
 pywavelets = "^1.2"
 numpy = "^1"
-scipy = "*"
 numba = "^0"
-matplotlib = "*"
-SoundFile = "^0.10.3.post1"
+click = "*"
+scipy = "*"
+matplotlib = { version = "*", optional = true }
+SoundFile = { version = "^0.10.3.post1", optional = true }
+
+[tool.poetry.extras]
+plot = ["matplotlib"]
+audio = ["SoundFile"]
 
 [tool.poetry.dev-dependencies]
 
@@ -62,11 +67,14 @@ cookiecutter = "*"
 
 [tool.poetry.scripts]
 
-#adaptivesswt = "adaptivesswt.cli:main"
+# adaptivesswt = "adaptivesswt.cli:main"
+testSST = { callable = "adaptivesswt.sswt:main", extras = ["plot"] }
+testASST = { callable = "adaptivesswt.adaptivesswt:main", extras = ["plot"] }
+checkASSTperformance = { callable = "scripts.check_sswt_performance:main", extras = ["plot"] }
 
 [tool.black]
 
-target-version = ["py38"]
+target-version = ["py310"]
 skip-string-normalization = true
 
 [tool.isort]

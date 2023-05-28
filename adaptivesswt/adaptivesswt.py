@@ -14,13 +14,14 @@ import numpy as np
 
 plt.rcParams['text.usetex'] = True
 
+import scipy.signal as sp
 import scipy.sparse.linalg as la
 
 from .configuration import Configuration
 from .sswt import reconstruct, reconstructCWT, sswt
 from .utils import signal_utils as generator
 from .utils.freq_utils import getDeltaAndBorderFreqs, getScale
-from .utils.plot_utils import plotSSWTminiBatchs
+from .utils.plot_utils import plot_batched_tf_repr, plot_tf_repr
 
 
 def _getFreqsPerBand(
@@ -492,6 +493,25 @@ def main():
 
     Call it only if you need to test if the package is working.
     """
+    import matplotlib
+    font = {'family' : 'normal',
+            'weight' : 'normal',
+            'size'   : 10}
+    matplotlib.rc('font', **font)
+
+    # Uncomment if you have pyqt installed:
+    # import matplotlib
+    # matplotlib.use('Qt5Agg')
+    plt.close('all')
+
+    logging.basicConfig(
+        filename='adaptivesswt.log',
+        filemode='w',
+        format='%(levelname)s - %(asctime)s - %(name)s:\n %(message)s',
+    )
+    logger = logging.getLogger(__name__)
+    logger.setLevel(logging.DEBUG)
+
     from os.path import abspath, dirname
     from pathlib import Path
 
@@ -513,7 +533,6 @@ def main():
     min_freq = 10
     num_freqs = 24
     specgram_num_freqs = int(num_freqs / (max_freq - min_freq) * (fs/2))
-    print(specgram_num_freqs)
 
     t, step = np.linspace(0, stopTime, signalLen, endpoint=False, retstep=True)
     ts = float(step)
@@ -594,22 +613,25 @@ def main():
         threshold=sig.max() / (100)
     )
 
-    spAx.specgram(sig, NFFT=int(specgram_num_freqs), Fs=fs, scale='linear', noverlap=specgram_num_freqs - 1, cmap='plasma')
+    sp_f, sp_t, ssp = sp.spectrogram(sig, fs=fs, nperseg=specgram_num_freqs, noverlap=specgram_num_freqs-1)
+    valid_fqs = np.logical_and(sp_f >= min_freq, sp_f <= max_freq)
+    # spAx.specgram(sig, NFFT=int(specgram_num_freqs), Fs=fs, scale='linear', noverlap=specgram_num_freqs - 1, cmap='plasma')
+    plot_tf_repr(ssp[valid_fqs,:], sp_t, sp_f[valid_fqs], spAx)
     spAx.set_title('Spectrogram')
-    spAx.set_ylim(min_freq, max_freq)
 
     sst, cwt, freqs, wab, tail = sswt(sig, **sstConfig.asdict())
-    print(len(freqs))
     reCwt = renyi_entropy(cwt)
     print(f'Entropy of CWT = {reCwt}')
     reSst = renyi_entropy(sst)
     print(f'Entropy of SST = {reSst}')
 
-    wtAx.pcolormesh(t, freqs, np.abs(cwt), cmap='plasma', shading='gouraud', antialiased=True)
+    # wtAx.pcolormesh(t, freqs, np.abs(cwt), cmap='plasma', shading='gouraud', antialiased=True)
+    plot_tf_repr(cwt, t, freqs, wtAx)
     wtAx.set_title('Wavelet Transform')
 
     # sstAx.pcolormesh(t, freqs, np.abs(sst), cmap='plasma', shading='gouraud', antialiased=True)
-    sstAx.imshow(np.abs(sst)[::-1,:], cmap=plt.cm.plasma, extent=[t.min(),t.max(),freqs.min(),freqs.max()], aspect='auto')
+    # sstAx.imshow(np.abs(sst)[::-1,:], cmap=plt.cm.plasma, extent=[t.min(),t.max(),freqs.min(),freqs.max()], aspect='auto')
+    plot_tf_repr(sst, t, freqs, sstAx)
     sstAx.set_title('Synchrosqueezing Transform')
 
     scales = getScale(freqs, config.ts, config.wcf)
@@ -635,7 +657,8 @@ def main():
     print(f'Entropy of ASST = {reAsst}')
 
     f_asst = aFreqs[np.argmax(abs(asst), axis=0)]
-    asstAx.pcolormesh(t, aFreqs, np.abs(asst), cmap='plasma', shading='gouraud')
+    plot_tf_repr(asst, t, aFreqs, asstAx)
+    # asstAx.pcolormesh(t, aFreqs, np.abs(asst), cmap='plasma', shading='gouraud')
     asstAx.set_title('Adaptive SSWT')
 
     signalR_asst = reconstruct(asst, config.c_psi, aFreqs)
@@ -650,7 +673,7 @@ def main():
     batchs = adaptive_sswt_slidingWindow(
         bLen, sig, bMaxIters, method, threshold, itl, **config.asdict()
     )
-    plotSSWTminiBatchs(batchs, bAsstAx)
+    plot_batched_tf_repr(batchs, ts, bAsstAx)
 
     # save figure
     compFig.savefig(str(parentDir / 'docs/img/method_comparison.pdf'), bbox_inches='tight')
@@ -736,24 +759,4 @@ def main():
 
 
 if __name__ == '__main__':
-
-    import matplotlib
-    font = {'family' : 'normal',
-            'weight' : 'normal',
-            'size'   : 10}
-    matplotlib.rc('font', **font)
-
-    # Uncomment if you have pyqt installed:
-    # import matplotlib
-    # matplotlib.use('Qt5Agg')
-    plt.close('all')
-
-    logging.basicConfig(
-        filename='adaptivesswt.log',
-        filemode='w',
-        format='%(levelname)s - %(asctime)s - %(name)s:\n %(message)s',
-    )
-    logger = logging.getLogger(__name__)
-    logger.setLevel(logging.DEBUG)
-
     main()

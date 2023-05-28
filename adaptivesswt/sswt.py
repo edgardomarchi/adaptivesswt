@@ -277,6 +277,13 @@ def reconstructCWT(cwt: np.ndarray, wav: pywt.ContinuousWavelet, # type: ignore 
 
 
 def main():
+    logging.basicConfig(filename='sswt.log', filemode='w',
+                        format='%(levelname)s - %(asctime)s - %(name)s:\n %(message)s')
+    logger = logging.getLogger(__name__)
+    logger.setLevel(logging.DEBUG)
+
+    import matplotlib.pyplot as plt
+
     from .configuration import Configuration
     from .utils import signal_utils as generator
     from .utils.measures_utils import renyi_entropy
@@ -386,16 +393,8 @@ def main():
     print(f'Excecution time for {passes} passes and {config.num_processes} processes = {time}s')
     print(f'Execution time per signal second = {time / stopTime / passes} s/s')
 
+    plt.show()
+
 
 if __name__=='__main__':
-    logging.basicConfig(filename='sswt.log', filemode='w',
-                        format='%(levelname)s - %(asctime)s - %(name)s:\n %(message)s')
-    logger = logging.getLogger(__name__)
-    logger.setLevel(logging.DEBUG)
-
-    import matplotlib.pyplot as plt
-    plt.close('all')
-
     main()
-
-    plt.show()

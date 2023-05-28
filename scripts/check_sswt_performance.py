@@ -95,7 +95,8 @@ def ckeck_complexity_distribution(maxSignalTime: float = 20, n_steps: int=10,
     return maxSignalTimes, a_times, sst_times, asst_times
 
 
-if __name__ == '__main__':
+def main():
+
     import matplotlib
     font = {'family' : 'normal',
             'weight' : 'normal',
@@ -147,3 +148,6 @@ if __name__ == '__main__':
         ax.legend()
 
     plt.show()
+
+if __name__ == '__main__':
+    main()
