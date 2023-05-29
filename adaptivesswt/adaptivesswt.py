@@ -3,17 +3,10 @@
 import logging
 import queue
 import threading
-from calendar import c
-
-logger = logging.getLogger(__name__)
-
 from typing import List, Tuple, Union
 
 import matplotlib.pyplot as plt
 import numpy as np
-
-plt.rcParams['text.usetex'] = True
-
 import scipy.signal as sp
 import scipy.sparse.linalg as la
 
@@ -23,6 +16,7 @@ from .utils import signal_utils as generator
 from .utils.freq_utils import getDeltaAndBorderFreqs, getScale
 from .utils.plot_utils import plot_batched_tf_repr, plot_tf_repr
 
+logger = logging.getLogger(__name__)
 
 def _getFreqsPerBand(
     nvPerBand: np.ndarray,
@@ -496,8 +490,9 @@ def main():
     import matplotlib
     font = {'family' : 'normal',
             'weight' : 'normal',
-            'size'   : 10}
+            'size'   : 4}
     matplotlib.rc('font', **font)
+    plt.rcParams['text.usetex'] = True
 
     # Uncomment if you have pyqt installed:
     # import matplotlib
@@ -531,7 +526,7 @@ def main():
 
     max_freq = 50
     min_freq = 10
-    num_freqs = 24
+    num_freqs = 16
     specgram_num_freqs = int(num_freqs / (max_freq - min_freq) * (fs/2))
 
     t, step = np.linspace(0, stopTime, signalLen, endpoint=False, retstep=True)
@@ -588,6 +583,8 @@ def main():
     ifAx.plot(t[: len(sig)], f2)
     # ifAx.plot(t[: len(sig)], f3)
     ifAx.set_title('Instantaneous frequency')
+    ifAx.set_xlabel('time [s]', loc='right')
+    ifAx.set_ylabel('freq. [Hz]',loc='top')
 
     #%% SSWT, CWT and Spectrogram
 

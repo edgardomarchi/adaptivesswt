@@ -82,6 +82,8 @@ def plot_tf_repr(tfr: np.ndarray, t: np.ndarray, f: np.ndarray, ax: Axes):
         Axis to plot within.
     """
     ax.pcolormesh(t, f, np.abs(tfr), cmap='plasma', shading='gouraud')
+    ax.set_xlabel('time [s]', loc='right')
+    ax.set_ylabel('freq. [Hz]',loc='top')
 
 def plot_batched_tf_repr(
     batchs: List[Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]],
@@ -101,6 +103,7 @@ def plot_batched_tf_repr(
 
     num_batchs = len(batchs)
 
+    ax.set_xlabel('')
     new_ax = ax
     for i, (asst, b_f, _, _) in enumerate(batchs):
         b_t = np.linspace(i*asst.shape[1]*ts, (i+1)*asst.shape[1]*ts, asst.shape[1], endpoint=False)
@@ -109,6 +112,7 @@ def plot_batched_tf_repr(
             new_ax.yaxis.set_visible(False)
             new_ax.sharey(ax)
             fig.add_axes(new_ax)
+            new_ax.set_ylabel('')
         plot_tf_repr(asst, b_t, b_f, new_ax)
         new_ax.tick_params(
             axis='x',          # changes apply to the x-axis
@@ -117,5 +121,8 @@ def plot_batched_tf_repr(
             top=False,         # ticks along the top edge are off
             labelbottom=True)
         new_ax.set_xticks([b_t[0]])
+        new_ax.set_xlabel('')
         if i == int((num_batchs - 1) // 2):
             new_ax.set_title('Adaptive SSWT - Batched')
+        elif i==(len(batchs)-1):
+            new_ax.set_xlabel('time [s]', loc='right')
