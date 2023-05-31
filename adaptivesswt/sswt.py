@@ -100,8 +100,10 @@ def sswt(signal: np.ndarray,
             St, wab = time_synchrosqueeze(cwt, freqs, ts, threshold, num_processes)
         case 'tfr':
             St, (wab, _) = tf_synchrosqueeze(cwt, freqs, ts, scales, delta_scales, threshold, num_processes)
-        case _:    # 'sst'
-            St, wab = freq_synchrosqueeze(cwt, freqs, ts, scales, delta_scales, threshold, num_processes)
+        case tr:    # 'sst', 'set'
+            St, wab = freq_synchrosqueeze(cwt, freqs, ts, scales, delta_scales, threshold, num_processes, transform=tr)
+        # case _:    # 'sst'
+        #    St, wab = freq_synchrosqueeze(cwt, freqs, ts, scales, delta_scales, threshold, num_processes)
 
     if pad != 0:
         assert c_psi is not None, 'Atention: c_psi is needed if pad is != 0'
@@ -145,7 +147,7 @@ def get_time_remapping(cwt: np.ndarray=np.array([[]]), threshold: float=0.1,
 
 def freq_synchrosqueeze(cwt_matr: np.ndarray, freqs: np.ndarray, ts: float, scales: np.ndarray,
                         delta_scales: np.ndarray, threshold: float,
-                        num_processes: int) -> Tuple[np.ndarray, np.ndarray]:
+                        num_processes: int, transform='sst') -> Tuple[np.ndarray, np.ndarray]:
 
     scaleExp = -3/2
     aScale = (scales ** scaleExp) * delta_scales
@@ -166,11 +168,15 @@ def freq_synchrosqueeze(cwt_matr: np.ndarray, freqs: np.ndarray, ts: float, scal
 
     sst = np.zeros_like(cwt_matr)
 
+    set_num_threads(num_processes)
+    match transform:
+        case 'set':
+            _freq_extract(deltaFreqs, borderFreqs, aScale, wab, cwt_matr, sst)
     ####################################
     # Sychrosqueezing parallel process
     ####################################
-    set_num_threads(num_processes)
-    _freq_agregate(deltaFreqs, borderFreqs, aScale, wab, cwt_matr, sst)
+        case _:
+            _freq_agregate(deltaFreqs, borderFreqs, aScale, wab, cwt_matr, sst)
 
     logger.info('Synchrosqueezing Done!')
 
@@ -236,6 +242,14 @@ def _freq_agregate(deltaFreqs: np.ndarray, borderFreqs: np.ndarray,
 
             sst[w,b] = (tr_matr[components,b] * aScale[components]).sum() / deltaFreqs[w]
 
+@njit(parallel=True, fastmath=True)
+def _freq_extract(deltaFreqs: np.ndarray, borderFreqs: np.ndarray,
+                  aScale: np.ndarray, wab: np.ndarray, tr_matr: np.ndarray,
+                  sst: np.ndarray):
+    for b in prange(sst.shape[1]):        # Time
+        for w in prange(sst.shape[0]):    # Frequency
+            if (wab[w,b] > borderFreqs[w]) and (wab[w,b] <= borderFreqs[w+1]):
+                sst[w,b] = tr_matr[w,b]  #/ deltaFreqs[w]
 
 @njit(parallel=True, fastmath=True)
 def _time_agregate(ts: float, time: np.ndarray, tab: np.ndarray,
@@ -248,12 +262,12 @@ def _time_agregate(ts: float, time: np.ndarray, tab: np.ndarray,
 
 def reconstruct(sst: np.ndarray, c_psi: complex,
                 freqs: np.ndarray)-> np.ndarray:
-    """Reconstruct signal from its SSWT
+    """Reconstruct signal from its SST
 
     Parameters
     ----------
     sst : np.ndarray
-        SSWT Matrix
+        SST Matrix
     wavelet : pywt.ContinuousWavelet
         Wavelet Family used in the SST
 
@@ -264,6 +278,26 @@ def reconstruct(sst: np.ndarray, c_psi: complex,
     """
     deltaFreqs, _ = getDeltaAndBorderFreqs(freqs)
     signalR = (1/c_psi) * (sst * deltaFreqs[:,np.newaxis]).sum(axis=0)
+    return signalR.real
+
+def reconstruct_tsst(tsst: np.ndarray, c_psi: complex,
+                     freqs: np.ndarray)-> np.ndarray:
+    """Reconstruct signal from its TSST
+
+    Parameters
+    ----------
+    sst : np.ndarray
+        SST Matrix
+    wavelet : pywt.ContinuousWavelet
+        Wavelet Family used in the SST
+
+    Returns
+    -------
+    np.ndarray
+        Reconstructed signal samples
+    """
+    deltaFreqs, _ = getDeltaAndBorderFreqs(freqs)
+    signalR = (1/c_psi) * (tsst * deltaFreqs[:,np.newaxis]).sum(axis=0)
     return signalR.real
 
 
@@ -288,8 +322,8 @@ def main():
     from .utils import signal_utils as generator
     from .utils.measures_utils import renyi_entropy
 
-    stopTime = 5
-    fs = 200
+    stopTime = 12
+    fs = 400
     signalLen = stopTime * fs
 
     t, step = np.linspace(0, stopTime, signalLen, endpoint=False, retstep=True)
@@ -298,9 +332,9 @@ def main():
     # signal = generator.testSine(t, 0.2) + generator.testSine(t,1) + generator.testSine(t, 5) + generator.testSine(t,10)
     # f, signal = generator.testSig(t)
     # f, signal = generator.crossChrips(t, 2, 8, 2)
-    # _, signal = generator.testChirp(t, 0.1, 30)
+    f, signal = generator.testChirp(t, 3, 6)
     # _, signal = generator.quadraticChirp(t, 1, 30)
-    f, signal = generator.dualQuadraticChirps(t, (8,6),(2,3))
+    # f, signal = generator.dualQuadraticChirps(t, (8,6),(2,3))
     # signal = np.zeros_like(t)
     # signal[fs:2*fs]=1.0
 
@@ -332,7 +366,7 @@ def main():
     rentrCWT = renyi_entropy(cwt,2)
     rentrSST = renyi_entropy(sst,2)
     print(f'Rènyi entropy of CWT = {rentrCWT}')
-    print(f'Rènyi entropy of SSWT = {rentrSST}')
+    print(f'Rènyi entropy of SST = {rentrSST}')
 
 
     mainFig = plt.figure('Method comparison')
@@ -360,7 +394,7 @@ def main():
     mainAxes[0, 1].set_title('Reconstructed signal')
 
     #### Transforms comparison ####
-    tsstFig, tsstAx = plt.subplots(1,4)
+    tsstFig, tsstAx = plt.subplots(1,5)
 
     # signal = np.zeros_like(t)
     # pulse_width = 10
@@ -382,6 +416,11 @@ def main():
     tfr, cwt, freqs, tab, tail = sswt(signal, **config.asdict())
     tsstAx[3].pcolormesh(t, freqs, np.abs(tfr)[:-1,:-1], cmap='viridis', shading='flat') #'gouraud')
     tsstAx[3].set_title('Time Frequency Reasignment')
+
+    config.transform = 'set'
+    tfr, cwt, freqs, tab, tail = sswt(signal, **config.asdict())
+    tsstAx[4].pcolormesh(t, freqs, np.abs(tfr)[:-1,:-1], cmap='viridis', shading='flat') #'gouraud')
+    tsstAx[4].set_title('Synchro-Extracting Transform')
 
     print(f'Max values: CWT={abs(cwt).max()}, SST={abs(sst).max()}, TSST={abs(tsst).max()}, TFR={abs(tfr).max()}\n')
 

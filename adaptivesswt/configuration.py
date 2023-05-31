@@ -3,29 +3,29 @@
 import logging
 from dataclasses import dataclass, fields
 from multiprocessing import cpu_count
-from typing import Optional, Tuple, Union
+from typing import Literal, Optional, Tuple, Union
 
 import numpy as np
-from pywt import (  # type: ignore # Pylance seems to fail finding ContinuousWavelet within pywt
-    ContinuousWavelet,
-    integrate_wavelet,
+from pywt import (
+    ContinuousWavelet,  # type: ignore # Pylance seems to fail finding ContinuousWavelet within pywt
 )
+from pywt import integrate_wavelet
 
 logger = logging.getLogger()
 
 
 @dataclass(init=True)
 class Configuration:
-    """SSWT Configuration helper class
+    """SST Configuration helper class
 
     This dataclass contains as attributes all the parameters needed to correctly
-    configure the SSWT function. It has common parameters by default.
+    configure the SST function. It has common parameters by default.
     It also provides an `asdict()` method to pass those parameters as **kwargs
 
     Returns
     -------
     Configuration object
-        Configuration object with attributes to use as parameters to SSWT
+        Configuration object with attributes to use as parameters to SST
 
     Example
     -------
@@ -52,7 +52,7 @@ class Configuration:
     int_psi: Optional[np.ndarray] = None
     int_step: Optional[float] = None
     c_psi: complex = 1
-    transform: str = 'sst' # 'sst', 'tsst', 'tfr'
+    transform: Literal['sst', 'tsst', 'tfr', 'set'] = 'sst' # 'sst', 'tsst', 'tfr'
 
     def __post_init__(self):
         self.wav = ContinuousWavelet(f'cmor{self.wbw}-{self.wcf}')

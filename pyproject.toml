@@ -68,9 +68,11 @@ cookiecutter = "*"
 [tool.poetry.scripts]
 
 # adaptivesswt = "adaptivesswt.cli:main"
-testSST = { callable = "adaptivesswt.sswt:main", extras = ["plot"] }
-testASST = { callable = "adaptivesswt.adaptivesswt:main", extras = ["plot"] }
-checkASSTperformance = { callable = "scripts.check_sswt_performance:main", extras = ["plot"] }
+test_sst = { callable = "adaptivesswt.sswt:main", extras = ["plot"] }
+test_asst = { callable = "adaptivesswt.adaptivesswt:main", extras = ["plot"] }
+check_asst_perf = { callable = "scripts.check_sswt_performance:main", extras = ["plot"] }
+test_asst_mse = { callable = "scripts.mse_for_synthetic_signals:main", extras = ["plot"] }
+
 
 [tool.black]
 

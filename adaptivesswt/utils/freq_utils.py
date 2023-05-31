@@ -1,6 +1,7 @@
-import pywt
-import numpy as np
 from typing import Tuple, Union
+
+import numpy as np
+import pywt
 
 
 def getScale(freq: Union[float, np.ndarray], ts: float, wcf: float) -> Union[float, np.ndarray]:
@@ -56,7 +57,7 @@ def calcScalesAndFreqs(ts: float, wcf: float, fmin: float, fmax: float,
     return scales, freqs, deltaScales, deltaFreqs  # type: ignore  # safe since freqs is an array thus scales will be array
 
 def getDeltaScales(scales: np.ndarray) -> np.ndarray:
-    """Calculates delta Scales for SSWT
+    """Calculates delta Scales for SST
 
     Parameters
     ----------

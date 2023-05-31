@@ -43,7 +43,9 @@ signal, time = extractPhase(data)
 print(f'Fs = {data.fs}')
 # Get signals
 ((signalPCG, pcgFs), (signalPulse, pulseFs), (signalResp, respFs)) = (
-  (signal, data.fs), (signal, data.fs), (signal, data.fs)
+    (signal, data.fs),
+    (signal, data.fs),
+    (signal, data.fs),
 )
 
 # Plotting parameters
@@ -99,7 +101,7 @@ signalPCGSynth = reconstruct(aSstPCG, configPCG.c_psi, freqsPCG)
 sstSignalPCGSynth = reconstruct(sstPCG, configPCG.c_psi, sstFreqs)
 
 signalPCGBSynthList = []
-for (bAsstPCG, bFreqsPCG, _) in pcgBatchs:
+for bAsstPCG, bFreqsPCG, _ in pcgBatchs:
     signalPCGBSynthList.append(reconstruct(bAsstPCG, configPCG.c_psi, bFreqsPCG))
 
 signalPCGBSynth = np.array(signalPCGBSynthList[1:-1]).flatten()
@@ -112,17 +114,17 @@ ax.plot(time, -1 * data.ecg / abs(data.ecg).max(), label='ECG')
 ax.plot(
     time[:: int(data.fs / pcgFs)],
     sstSignalPCGSynth / abs(sstSignalPCGSynth)[200:-200].max(),
-    label=f'SSWT - Radar',
+    label=f'SST - Radar',
 )
 ax.plot(
     time[:: int(data.fs / pcgFs)],
     signalPCGSynth / abs(signalPCGSynth)[200:-200].max(),
-    label=f'SSWT ADPT - Radar',
+    label=f'ASST - Radar',
 )
 ax.plot(
     time[:: int(data.fs / pcgFs)],
     signalPCGBSynth / abs(signalPCGBSynth[200:-200]).max(),
-    label=f'SSWT B-ADPT - Radar',
+    label=f'SST B-ADPT - Radar',
 )
 ax.legend()
 fig.suptitle('PCG')
@@ -182,7 +184,7 @@ if plotPulse:
 signalPulseSynth = reconstruct(aSstPulse, configPulse.c_psi, freqsPulse)
 
 signalPulseBSynthList = []
-for (bAsstPulse, bFreqsPulse, _) in pulseBatchs:
+for bAsstPulse, bFreqsPulse, _ in pulseBatchs:
     signalPulseBSynthList.append(
         reconstruct(bAsstPulse, configPulse.c_psi, bFreqsPulse)
     )
@@ -197,12 +199,12 @@ ax.plot(time, -1 * data.ecg / abs(data.ecg).max(), label='ECG')
 ax.plot(
     time[:: int(data.fs / pulseFs)],
     signalPulseSynth / abs(signalPulseSynth).max(),
-    label=f'SSWT ADPT - Radar',
+    label=f'ASST - Radar',
 )
 ax.plot(
     time[:: int(data.fs / pulseFs)],
     signalPulseBSynth / abs(signalPulseBSynth).max(),
-    label=f'SSWT B-ADPT - Radar',
+    label=f'SST B-ADPT - Radar',
 )
 ax.legend()
 fig.suptitle('Pulse')
@@ -251,14 +253,18 @@ if plotResp:
     respFig.suptitle('Respiration')  # type: ignore
 
 _, sstFreqs, _, _ = calcScalesAndFreqs(
-    respFs, configResp.wcf, configResp.min_freq, configResp.max_freq, configResp.num_freqs
+    respFs,
+    configResp.wcf,
+    configResp.min_freq,
+    configResp.max_freq,
+    configResp.num_freqs,
 )
 
 signalRespSynth = reconstruct(aSstResp, configResp.c_psi, freqsResp)
 sstSignalRespSynth = reconstruct(sstResp, configResp.c_psi, sstFreqs)
 
 signalRespBSynthList = []
-for (bAsstResp, bFreqsResp, _) in respBatchs:
+for bAsstResp, bFreqsResp, _ in respBatchs:
     signalRespBSynthList.append(reconstruct(bAsstResp, configResp.c_psi, bFreqsResp))
 
 signalRespBSynth = np.array(signalRespBSynthList[1:-1]).flatten()
@@ -270,9 +276,9 @@ fig, ax = plt.subplots(1, 1)
 ax.plot(
     time, -1 * data.resp / data.resp.max(), label='Respiration (thermal)'
 )  # Gets inverted due thermal method
-ax.plot(time[:: int(data.fs / respFs)], sstSignalRespSynth, label=f'SSWT- Radar')
-ax.plot(time[:: int(data.fs / respFs)], signalRespSynth, label=f'SSWT ADPT - Radar')
-ax.plot(time[:: int(data.fs / respFs)], signalRespBSynth, label=f'SSWT B-ADPT - Radar')
+ax.plot(time[:: int(data.fs / respFs)], sstSignalRespSynth, label=f'SST- Radar')
+ax.plot(time[:: int(data.fs / respFs)], signalRespSynth, label=f'ASST - Radar')
+ax.plot(time[:: int(data.fs / respFs)], signalRespBSynth, label=f'SST B-ADPT - Radar')
 ax.legend()
 fig.suptitle('Respiration')
 

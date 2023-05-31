@@ -16,7 +16,7 @@ from adaptivesswt.adaptivesswt import adaptive_sswt, adaptive_sswt_slidingWindow
 from adaptivesswt.configuration import Configuration
 from adaptivesswt.sswt import sswt
 from adaptivesswt.utils.import_utils import MeasurementData
-from adaptivesswt.utils.plot_utils import plot_batched_tf_repr
+from adaptivesswt.utils.plot_utils import plot_batched_tf_repr, plot_tf_repr
 
 logger = logging.getLogger(__name__)
 
@@ -87,7 +87,7 @@ def analyze(signal: np.ndarray, config: Configuration,
             iters: int=0, method: str='threshold', threshold: float = 1/100, itl: bool=False,
             bLen: int=256, plot: bool=True, tsst=False
             ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, list, Union[plt.Figure, None]]:
-    """Analyzes the signal with the adaptive SSWT
+    """Analyzes the signal with the adaptive SST
 
     Parameters
     ----------
@@ -106,7 +106,7 @@ def analyze(signal: np.ndarray, config: Configuration,
     bLen: int, optional
         The number of samples of each batch, by default 256
     plot : bool, optional
-        'True' to plot CWT and SSWT, by default False
+        'True' to plot CWT and SST, by default False
 
     Returns
     -------
@@ -123,20 +123,18 @@ def analyze(signal: np.ndarray, config: Configuration,
     print(f'Blen = {bLen}, Batchs = {len(batchs)}')
     fig = None
     if plot:
-        fig = plt.figure(figsize=(12,4), dpi=300)
+        fig = plt.figure(figsize=(17/2.54,6/2.54), dpi=300)
         gs = fig.add_gridspec(1, 3)
         stAx = plt.subplot(gs[0, 0],)
         asAx = plt.subplot(gs[0, 1],)
         baAx = plt.subplot(gs[0,2],)
         stAx.get_shared_y_axes().join(stAx, asAx, baAx)
-        stAx.pcolormesh(time, freqs, np.abs(sst), cmap='plasma', shading='gouraud')
-        stAx.set_title('SSWT')
-        stAx.set_ylabel('frequency [Hz]', loc='top')
-        asAx.pcolormesh(time, afreqs, np.abs(asst), cmap='plasma', shading='gouraud')
-        asAx.set_title('ASSWT')
+        plot_tf_repr(sst,time, freqs, stAx)
+        stAx.set_title('SST')
+        plot_tf_repr(asst, time, afreqs, asAx)
+        asAx.set_title('ASST')
         plot_batched_tf_repr(batchs, config.ts, baAx)
-        baAx.set_xlabel('time [s]', loc='right')
 
-        gs.tight_layout(fig, rect=[0, 0.03, 1, 0.95])
+        gs.tight_layout(fig)#, rect=[0, 0, 0.8, 1])
 
     return sst, asst, afreqs, batchs, fig

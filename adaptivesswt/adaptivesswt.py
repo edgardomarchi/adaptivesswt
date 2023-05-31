@@ -270,7 +270,7 @@ def adaptive_sswt(
         kwargs['custom_scales'] = scales_adp
         sst, cwt, freqs, wab, tail = sswt(signal, **kwargs)
         if not sst.any():
-            logger.warning('\nATENTION! SSWT contains only 0s\n\t Analized frecuencies: %s \n\n', freqs)
+            logger.warning('\nATENTION! SST contains only 0s\n\t Analized frecuencies: %s \n\n', freqs)
 
     return sst, freqs, wab, tail
 
@@ -284,14 +284,14 @@ def adaptive_sswt_overlapAndAdd(
     itl: bool = False,
     **kwargs,
 ) -> List[Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]]:
-    """Calculates the adaptive SSWT for batches of the input signal using overlapAndAdd method.
+    """Calculates the adaptive SST for batches of the input signal using overlapAndAdd method.
 
     Parameters
     ----------
     batchSize : int
         Size of each batch
     signal : np.ndarray
-        Signal to analyze with the A-SSWT
+        Signal to analyze with the ASST
     maxIters : int, optional
         Maximum number of iterations of the adaptive algorithm, by default 2
     method : {'proportional','threshold'}, optional
@@ -304,7 +304,7 @@ def adaptive_sswt_overlapAndAdd(
     Returns
     -------
     List[Tuple[np.ndarray, np.ndarray, np.ndarray]]
-        List of tuples containin return arrays of `adaptive_sswt()`. I.e. [(ASSWT matrix, frequencies, wab, tail),...].
+        List of tuples containin return arrays of `adaptive_sswt()`. I.e. [(ASST matrix, frequencies, wab, tail),...].
     """
 
     tail = np.zeros(batchSize)
@@ -339,14 +339,14 @@ def adaptive_sswt_slidingWindow(
     itl: bool = False,
     **kwargs,
 ) -> List[Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]]:
-    """Calculates the adaptive SSWT for batches of the input signal using sliding window method.
+    """Calculates the adaptive SST for batches of the input signal using sliding window method.
 
     Parameters
     ----------
     batchSize : int
         Size of each batch
     signal : np.ndarray
-        Signal to analyze with the A-SSWT
+        Signal to analyze with the ASST
     maxIters : int, optional
         Maximum number of iterations of the adaptive algorithm, by default 2
     method : {'proportional','threshold'}, optional
@@ -359,7 +359,7 @@ def adaptive_sswt_slidingWindow(
     Returns
     -------
     List[Tuple[np.ndarray, np.ndarray, np.ndarray]]
-        List of tuples containing return arrays of `adaptive_sswt()`. I.e. [(ASSWT matrix, frequencies, tail),...].
+        List of tuples containing return arrays of `adaptive_sswt()`. I.e. [(ASST matrix, frequencies, tail),...].
     """
     padding = kwargs.get('pad', 0)
     numBatchs = int(np.ceil(len(signal) / batchSize))
@@ -586,7 +586,7 @@ def main():
     ifAx.set_xlabel('time [s]', loc='right')
     ifAx.set_ylabel('freq. [Hz]',loc='top')
 
-    #%% SSWT, CWT and Spectrogram
+    #%% SST, CWT and Spectrogram
 
     sstConfig = Configuration(
         min_freq=min_freq,
@@ -638,7 +638,7 @@ def main():
     f_sst = freqs[np.argmax(abs(sst), axis=0)]
     f_cwt = freqs[np.argmax(abs(cwt), axis=0)]
 
-    #%% Adaptive SSWT and minibatch A SSWT
+    #%% Adaptive SST and minibatch A SST
     maxIters = 2
     threshold = config.threshold * 2
     method = 'proportional'
@@ -656,7 +656,7 @@ def main():
     f_asst = aFreqs[np.argmax(abs(asst), axis=0)]
     plot_tf_repr(asst, t, aFreqs, asstAx)
     # asstAx.pcolormesh(t, aFreqs, np.abs(asst), cmap='plasma', shading='gouraud')
-    asstAx.set_title('Adaptive SSWT')
+    asstAx.set_title('Adaptive SST')
 
     signalR_asst = reconstruct(asst, config.c_psi, aFreqs)
 
@@ -686,9 +686,9 @@ def main():
     #%% Instantaneous frequencies across methods
     fig, ax = plt.subplots(1, dpi=300)
     ax.plot(t[: len(sig)], f_cwt, label='CWT')
-    ax.plot(t[: len(sig)], f_sst, label='SSWT')
-    ax.plot(t[: len(sig)], f_asst, label='A-SSWT')
-    ax.plot(t[: len(f_batch)], f_batch, label=f'A-SSWT ({batch_time}s batchs)')
+    ax.plot(t[: len(sig)], f_sst, label='SST')
+    ax.plot(t[: len(sig)], f_asst, label='ASST')
+    ax.plot(t[: len(f_batch)], f_batch, label=f'ASST ({batch_time}s batchs)')
     ax.plot(t[: len(sig)], f1, label='Signal')
     ax.legend()
     fig.suptitle('Instantaneous frequencies')
@@ -700,8 +700,8 @@ def main():
         label='Original Signal',
         alpha=0.8,
     )
-    ax.plot(t[: len(signalR_sst)], signalR_sst, label='SSWT Signal')
-    ax.plot(t[: len(signalR_asst)], signalR_asst, label='A-SSWT Signal')
+    ax.plot(t[: len(signalR_sst)], signalR_sst, label='SST Signal')
+    ax.plot(t[: len(signalR_asst)], signalR_asst, label='ASST Signal')
     ax.legend()
     fig.suptitle('Signal reconstruction')
 
@@ -722,7 +722,7 @@ def main():
     ax.plot(
         t[: len(f_batch)],
         mse_asst_batch,
-        label=f'A-SST Batch - MSE = {mse_asst_batch_total:.3}',
+        label=f'B-ASST - MSE = {mse_asst_batch_total:.3}',
     )
     ax.legend()
     fig.suptitle('MSE(f)')

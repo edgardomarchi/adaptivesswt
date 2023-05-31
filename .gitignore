@@ -142,3 +142,6 @@ cython_debug/
 # data
 dataset/
 dataset.zip
+
+# figs
+fig/

@@ -83,17 +83,17 @@ def plot_tf_repr(tfr: np.ndarray, t: np.ndarray, f: np.ndarray, ax: Axes):
     """
     ax.pcolormesh(t, f, np.abs(tfr), cmap='plasma', shading='gouraud')
     ax.set_xlabel('time [s]', loc='right')
-    ax.set_ylabel('freq. [Hz]',loc='top')
+    ax.set_ylabel('f [Hz]',loc='top', rotation=0, labelpad=-15)
 
 def plot_batched_tf_repr(
     batchs: List[Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]],
     ts: float, ax: Axes):
-    """Plots in a packed set of axes the results of the batched ASSWT
+    """Plots in a packed set of axes the results of the batched ASST
 
     Parameters
     ----------
     batchs : List[Tuple[np.ndarray, np.ndarray, np.ndarray]]
-        List of tuples containing (ASSWT, Frequencies, tail)
+        List of tuples containing (ASST, Frequencies, tail)
     ax : Axis
         Matplotlib Axis where function will plot
     """
@@ -123,6 +123,6 @@ def plot_batched_tf_repr(
         new_ax.set_xticks([b_t[0]])
         new_ax.set_xlabel('')
         if i == int((num_batchs - 1) // 2):
-            new_ax.set_title('Adaptive SSWT - Batched')
+            new_ax.set_title('B-ASST')
         elif i==(len(batchs)-1):
             new_ax.set_xlabel('time [s]', loc='right')
