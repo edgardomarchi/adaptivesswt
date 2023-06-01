@@ -6,6 +6,7 @@ Created on Fri Mar 12 10:26:25 2021
 @author: edgardo
 """
 import logging
+import time as clock
 from typing import Tuple, Union
 
 import matplotlib.pyplot as plt
@@ -115,7 +116,9 @@ def analyze(signal: np.ndarray, config: Configuration,
     """
     time = np.linspace(0, len(signal)*config.ts, len(signal))
     sst, _, freqs, _, _ = sswt(signal, **config.asdict(), tsst=tsst)
+    pre = clock.time()
     asst, afreqs, _, _ = adaptive_sswt(signal, iters, method, threshold, itl, **config.asdict(), tsst=tsst)
+    print(f'Real time taken to comute ASST = {clock.time()-pre}')
     batchs = adaptive_sswt_slidingWindow(
         bLen, signal, iters, method, threshold, itl, **config.asdict(), tsst=tsst
     )

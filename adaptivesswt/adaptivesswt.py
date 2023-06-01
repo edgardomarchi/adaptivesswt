@@ -240,10 +240,10 @@ def adaptive_sswt(
         logger.debug("******************* Iteration: %d ********************\n", i)
         _, limits = getDeltaAndBorderFreqs(freqs)
         if itl:
-            spectrum = ((abs(sst)) / (getScale(freqs, kwargs['ts'], kwargs['wcf'])[:, None])).sum(axis=1)  # type: ignore
+            spectrum = (abs(sst)).sum(axis=1) #/ (getScale(freqs, kwargs['ts'], kwargs['wcf'])[:, None])).sum(axis=1)  # type: ignore
             # getScale always returns ndarray in this case
         else:
-            spectrum = ((abs(cwt)) / (getScale(freqs, kwargs['ts'], kwargs['wcf'])[:, None])).sum(axis=1)  # type: ignore
+            spectrum = (abs(cwt)).sum(axis=1) #/ (getScale(freqs, kwargs['ts'], kwargs['wcf'])[:, None])).sum(axis=1)  # type: ignore
             # getScale always returns ndarray in this case
 
 
@@ -737,6 +737,38 @@ def main():
     asst, aFreqs, wab, tail = adaptive_sswt(
         sig, maxIters, method, threshold, itl, **config.asdict()
     )
+
+#%% Compare methods
+    N=256
+
+    test_config = Configuration(
+        min_freq = 1,
+        max_freq = N/2,
+        num_freqs= N,
+        ts=1/N,
+        wcf=1,
+        wbw=3,
+        wavelet_bounds=(-8,8),
+        transform='sst'
+    )
+    max_iters = 1
+    method = 'proportional'
+    itl = True
+
+    t, step = np.linspace(0, 1, N, endpoint=False, retstep=True)
+    ts = float(step)
+    f, signal = generator.matlab_comparison_signals(t, ts)
+    import time as clock
+    prev = clock.time()
+    asst, aFreqs, _, _ = adaptive_sswt(
+        signal, max_iters, method, threshold, itl, **test_config.asdict()
+    )
+    logger.info('Time to run ASST with N = %s: %s s',N, clock.time()-prev)
+    mCompFig, mCompAx = plt.subplots(1, figsize=(5/2.54,4/2.54), dpi=300)
+    mCompFig.suptitle('Signal for comparison')
+    plot_tf_repr(asst,np.linspace(0, N, N, endpoint=False),
+                 aFreqs, mCompAx)
+    mCompAx.invert_yaxis()
 
     plt.show(block=False)
 
