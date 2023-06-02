@@ -782,9 +782,11 @@ def main():
         bSswt_fix = lambda: adaptive_sswt_slidingWindow(
             bLen, sig, bMaxIters, method, threshold, itl, **config.asdict()
         )
-        timingProc = timeit.timeit(bSswt_fix, number=5) / 5 / len(sig)
+        timingProc = timeit.timeit(bSswt_fix, number=5) / 5
+        timingProcPS = timingProc / len(sig)
+        print(f'Average execution time: {timingProc}')
         print(f'Number of processes : {config.num_processes}')
-        print(f'Average timing per signal sample = {timingProc} s/s')
+        print(f'Average timing per signal sample = {timingProcPS} s/s')
 
 
 if __name__ == '__main__':
