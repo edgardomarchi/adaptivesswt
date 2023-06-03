@@ -25,11 +25,13 @@ numba = "^0"
 click = "*"
 scipy = "*"
 matplotlib = { version = "*", optional = true }
+pandas = { version = "*", optional = true }
 SoundFile = { version = "^0.10.3.post1", optional = true }
 
 [tool.poetry.extras]
 plot = ["matplotlib"]
 audio = ["SoundFile"]
+tests = ["matplotlib", "pandas"]
 
 [tool.poetry.dev-dependencies]
 

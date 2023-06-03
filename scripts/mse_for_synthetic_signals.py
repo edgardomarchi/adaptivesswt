@@ -1,8 +1,7 @@
-from typing import Callable, Tuple
+from typing import Callable, Optional, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
-import scipy.signal as sp
 
 from adaptivesswt.adaptivesswt import (
     adaptive_sswt,
@@ -33,9 +32,9 @@ def get_mse_batched(
     t: np.ndarray,
     f: Tuple,
     transform: Callable,
-    plots: bool,
-    ax: np.ndarray,
     config: Configuration,
+    method_fig: Optional[plt.figure] = None,
+    if_fig: Optional[plt.figure] = None,
     **kwargs,
 ):
     border = None if len(f) == 1 else (config.max_freq + config.min_freq) / 2
@@ -45,11 +44,28 @@ def get_mse_batched(
     sst, cwt, freqs, _, _ = sswt(signal, **config.asdict())
     entropies[0] = renyi_entropy(cwt)
     entropies[1] = renyi_entropy(sst)
-    if plots:
-        plot_tf_repr(cwt, t, freqs, ax[0, 0])
-        ax[0, 0].set_title('CWT')
-        plot_tf_repr(sst, t, freqs, ax[0, 1])
-        ax[0, 1].set_title('SST')
+    if method_fig is not None:
+
+        gs_mf = method_fig.add_gridspec(1, 4)
+        cwt_ax = method_fig.add_subplot(
+            gs_mf[0, 0],
+        )
+        sst_ax = method_fig.add_subplot(
+            gs_mf[0, 1],
+        )
+        sst_ax.sharey(cwt_ax)
+        asst_ax = method_fig.add_subplot(
+            gs_mf[0, 2],
+        )
+        asst_ax.sharey(cwt_ax)
+        basst_ax = method_fig.add_subplot(
+            gs_mf[0, 3],
+        )
+        basst_ax.sharey(cwt_ax)
+        plot_tf_repr(cwt, t, freqs, cwt_ax)
+        cwt_ax.set_title('CWT')
+        plot_tf_repr(sst, t, freqs, sst_ax)
+        sst_ax.set_title('SST')
 
     f1_sst, f2_sst = detect_frequencies(np.abs(sst), freqs, border)
     f1_cwt, f2_cwt = detect_frequencies(np.abs(cwt), freqs, border)
@@ -64,9 +80,9 @@ def get_mse_batched(
     )
 
     entropies[2] = renyi_entropy(asst)
-    if plots:
-        plot_tf_repr(asst, t, aFreqs, ax[1, 0])
-        ax[1, 0].set_title('ASST')
+    if method_fig is not None:
+        plot_tf_repr(asst, t, aFreqs, asst_ax)
+        asst_ax.set_title('ASST')
 
     f1_asst, f2_asst = detect_frequencies(np.abs(asst), aFreqs, border)
 
@@ -115,130 +131,49 @@ def get_mse_batched(
     ) ** 2
     mse_asst_batch_total = mse_asst_batch.sum() / len(mse_asst_batch)
 
-    if plots:
-        plot_batched_tf_repr(batchs, config.ts, ax[1, 1])
-        ax[1, 1].set_title('B-ASST')
+    if method_fig is not None:
+        plot_batched_tf_repr(batchs, config.ts, basst_ax)
+        method_fig.set_tight_layout(True)
 
-        ### TODO: This code is assuming two frequency components in the signal. It should be generalized.
+    ### TODO: This code is assuming two frequency components in the signal. It should be generalized.
+    if if_fig is not None:
 
-        #### Setup plot ####
-        compFig = plt.figure(
-            'Method comparison - '
-            + (
-                f"ITL/{kwargs['method']}"
-                if kwargs['itl']
-                else f"OTL/{kwargs['method']}"
-            ),
-            dpi=200,
-            figsize=(16 / 2.54, 10 / 2.54),
+        gs_if = if_fig.add_gridspec(1, 2)
+        if_comp_ax = if_fig.add_subplot(
+            gs_if[0, 0],
         )
-        compFig.set_tight_layout(True)
-        if kwargs['itl'] == False:
-            print(f"OTL {kwargs['method']}, figure:{compFig}")
-        gs = compFig.add_gridspec(2, 3)
-        ifAx = plt.subplot(
-            gs[0, 0],
-        )
-        ifAx.set_ylabel('freq. [Hz]', loc='top')
-        ifAx.set_xlabel('time [s]', loc='right')
-        wtAx = plt.subplot(
-            gs[0, 2],
-        )
-        spAx = plt.subplot(
-            gs[0, 1],
-        )
-        sstAx = plt.subplot(
-            gs[1, 0],
-        )
-        asstAx = plt.subplot(
-            gs[1, 1],
-        )
-        bAsstAx = plt.subplot(
-            gs[1, 2],
-        )
-        ifAx.get_shared_y_axes().join(wtAx, ifAx, spAx)
-        sstAx.get_shared_y_axes().join(sstAx, asstAx, bAsstAx)
-
-        for freq in f:
-            ifAx.plot(t[: len(signal)], freq)
-        ifAx.set_title('Instantaneous frequency')
-
-        specgram_num_freqs = int(
-            config.num_freqs / (config.max_freq - config.min_freq) / (2 * config.ts)
-        )
-        sp_f, sp_t, ssp = sp.spectrogram(
-            signal,
-            fs=1 / config.ts,
-            nperseg=specgram_num_freqs,
-            noverlap=specgram_num_freqs - 1,
-        )
-        valid_fqs = np.logical_and(sp_f >= config.min_freq, sp_f <= config.max_freq)
-
-        plot_tf_repr(ssp[valid_fqs, :], sp_t, sp_f[valid_fqs], spAx)
-        spAx.set_title('Spectrogram')
-
-        plot_tf_repr(cwt, t, freqs, wtAx)
-        wtAx.set_title('WT')
-        # Super imposed instantaneous frequencies:
-        # wtAx.plot(t,f1_cwt,'--', color='red')
-        # wtAx.plot(t,f2_cwt,'--', color='orange')
-
-        plot_tf_repr(sst, t, freqs, sstAx)
-        sstAx.set_title('SST')
-        # Super imposed instantaneous frequencies:
-        # sstAx.plot(t,f1_sst,'--', color='red')
-        # sstAx.plot(t,f2_sst,'--', color='orange')
-
-        plot_tf_repr(asst, t, aFreqs, asstAx)
-        asstAx.set_title('ASST')
-        # Super imposed instantaneous frequencies:
-        # asstAx.plot(t,f1_asst,'--', color='red')
-        # asstAx.plot(t,f2_asst,'--', color='orange')
-
-        plot_batched_tf_repr(batchs, config.ts, bAsstAx)
-
-        ifFig = plt.figure(
-            f"IF - ITL/{kwargs['method']}"
-            if kwargs['itl']
-            else f"OTL/{kwargs['method']}",
-            dpi=100,
-        )
-        gsIf = ifFig.add_gridspec(1, 2)
-        ifCompAx = plt.subplot(
-            gsIf[0, 0],
-        )
-        mseCompAx = plt.subplot(
-            gsIf[0, 1],
+        mse_comp_ax = if_fig.add_subplot(
+            gs_if[0, 1],
         )
 
-        ifCompAx.plot(t, f1_sst, ':', color='blue', label='SST')
-        ifCompAx.plot(t, f2_sst, ':', color='blue')
+        if_comp_ax.plot(t, f1_sst, ':', color='blue', label='SST')
+        if_comp_ax.plot(t, f2_sst, ':', color='blue')
 
-        ifCompAx.plot(t, f1_batch, '-', alpha=0.9, color='red', label='B-ASST')
-        ifCompAx.plot(t, f2_batch, '-', alpha=0.9, color='red')
+        if_comp_ax.plot(t, f1_batch, '-', alpha=0.9, color='red', label='B-ASST')
+        if_comp_ax.plot(t, f2_batch, '-', alpha=0.9, color='red')
 
         for i, freq in enumerate(f):
             if i == 0:
-                ifCompAx.plot(
+                if_comp_ax.plot(
                     t[: len(signal)], freq, '--', color='green', label='Inst. Freq.'
                 )
             else:
-                ifCompAx.plot(t[: len(signal)], freq, '--', color='green')
-        ifCompAx.set_title('(a) Instantaneous Frequencies')
-        ifCompAx.set_ylabel('frequency [Hz]', loc='top')
-        ifCompAx.legend()
+                if_comp_ax.plot(t[: len(signal)], freq, '--', color='green')
+        if_comp_ax.set_title('(a) Instantaneous Frequencies')
+        if_comp_ax.set_ylabel('frequency [Hz]', loc='top')
+        if_comp_ax.legend()
 
-        mseCompAx.plot(t[: len(mse_sst)], mse_sst, ':', color='blue', label='SST')
-        mseCompAx.plot(
+        mse_comp_ax.plot(t[: len(mse_sst)], mse_sst, ':', color='blue', label='SST')
+        mse_comp_ax.plot(
             t[: len(mse_asst_batch)], mse_asst_batch, '-', color='red', label='B-ASST'
         )
-        mseCompAx.set_title('(b) MSE(t)')
-        mseCompAx.set_xlabel('Time [s]', loc='right')
-        mseCompAx.set_ylabel('MSE', loc='top')
+        mse_comp_ax.set_title('(b) MSE(t)')
+        mse_comp_ax.set_xlabel('Time [s]', loc='right')
+        mse_comp_ax.set_ylabel('MSE', loc='top')
 
-        mseCompAx.legend()
+        mse_comp_ax.legend()
 
-        compFig.set_tight_layout(True)
+        if_fig.set_tight_layout(True)
 
     return mse_cwt_total, mse_sst_total, mse_asst_total, mse_asst_batch_total, entropies
 
@@ -285,12 +220,12 @@ def main():
     config = Configuration(
         min_freq=20,
         max_freq=50,
-        num_freqs=12,
+        num_freqs=16,
         ts=ts,
         wcf=1,
-        wbw=25,
+        wbw=30,
         wavelet_bounds=(-8, 8),
-        threshold=1 / 100,
+        threshold=1/10,
     )
 
     ## Configuration for batched version:
@@ -302,7 +237,7 @@ def main():
     )  # Batch length in samples
     bPad = int(bLen * 0.9)  # Padding / overlapping per batch in samples
     config.pad = bPad
-    threshold = config.threshold * 50  # Threshold for ASST
+    threshold = config.threshold * 5  # Threshold for ASST
     bMaxIters = 2  # Max iterations in batched mode
 
     # Transform function to run
@@ -344,38 +279,38 @@ def main():
     # Translate method string from printable to parameter:
     methd = {'thrs': 'threshold', 'prop': 'proportional'}
 
-    sinFig, sinAxes = plt.subplots(2, 2, dpi=300)
-    sinFig.suptitle('Sine')
-    dqcFig, dqcAxes = plt.subplots(2, 2, dpi=300)
-    dqcFig.suptitle('Dual Quadratic Chirp')
-    lcFig, lcAxes = plt.subplots(2, 2, dpi=300)
-    lcFig.suptitle('Linear Chirp')
+    sin_fig = plt.figure('Sine', dpi=300, figsize=(16/2.54, 6/2.54))
+    sin_mse_fig = plt.figure('MSE - Sine', dpi=300)
+    dqc_fig = plt.figure('Dual Quadratic Chirp', dpi=300, figsize=(16/2.54, 6/2.54))
+    dqc_mse_fig = plt.figure('MSE - Dual Quadratic Chirp', dpi=300)
+    lc_fig = plt.figure('Linear Chirp', dpi=300, figsize=(16/2.54, 6/2.54))
+    lc_mse_fig = plt.figure('MSE - Linear Chirp', dpi=300)
 
     for signal_name, (f, signal) in signals.items():
         for itl, method in itertools.product([False, True], methd.keys()):
-            plots = False
             itl_str = 'ITL' if itl else 'OTL'
             key = f'-{itl_str}-{method}'
             print(f'Analizing: {signal_name}{key}')
 
-            axesToPlot = []
-            if signal_name == 'Dual Quadratic Chirp' and not itl:
-                plots = True
-                axesToPlot = dqcAxes
-            if signal_name == 'Sine' and itl:
-                plots = False
-                axesToPlot = sinAxes
-            if signal_name == 'Linear Chirp' and not itl:
-                plots = True
-                axesToPlot = lcAxes
+            figure_to_plot = None
+            if_mse_figure_to_plot = None
+            if signal_name == 'Dual Quadratic Chirp' and key == '-OTL-thrs':
+                figure_to_plot = dqc_fig
+                if_mse_figure_to_plot = dqc_mse_fig
+            if signal_name == 'Sine' and key == '-OTL-prop':
+                figure_to_plot = sin_fig
+                if_mse_figure_to_plot = sin_mse_fig
+            if signal_name == 'Linear Chirp' and key == '-ITL-prop':
+                figure_to_plot = lc_fig
+                if_mse_figure_to_plot = lc_mse_fig
 
             mse = get_mse_batched(
                 signal,
                 t,
                 f,
                 tr,
-                plots=plots,
-                ax=axesToPlot,  # type: ignore # Since f is always a tuple
+                method_fig=figure_to_plot,
+                if_fig=if_mse_figure_to_plot,
                 config=config,
                 bLen=bLen,
                 bMaxIters=bMaxIters,
@@ -401,14 +336,14 @@ def main():
 
     # results.style.format('{:.4f}')
     results.style.format('{:.4f}').to_latex(
-        str(parentDir / f'docs/latex/mse_table_signal.tex'),
+        str(parentDir / 'docs/latex/mse_table_signal.tex'),
         hrules=True,
         column_format='|r|c|c|c|c|c|c|c|c|c|c|',
     )
 
     # entropies.style.format('{:.4f}')
     entropies.style.format('{:.4f}').to_latex(
-        str(parentDir / f'docs/latex/entropies_table.tex'),
+        str(parentDir / 'docs/latex/entropies_table.tex'),
         hrules=True,
         column_format='|r|c|c|c|c|c|c|c|c|c|c|',
     )
@@ -434,7 +369,7 @@ def main():
         'OTL/threshold': np.zeros_like(iters, dtype=float),
     }
 
-    for key in mseASSTIter:
+    for key, mseASST in mseASSTIter.items():
         for bMaxIter in iters:
             print(f'Analizing {key}, iter : {bMaxIter}')
             mse = get_mse_batched(
@@ -442,16 +377,14 @@ def main():
                 t,
                 f,
                 tr,
-                False,
-                np.array([]),
                 config,
                 bLen=bLen,
                 bMaxIters=bMaxIter,
                 method=key.split('/')[1],
-                threshold=threshold,
-                itl=(True if key.split('/')[0] == 'ITL' else False),
+                threshold=0.1,
+                itl=(True if key.split('/', maxsplit=1)[0] == 'ITL' else False),
             )
-            mseASSTIter[key][bMaxIter] = mse[-3]
+            mseASST[bMaxIter] = mse[-3]
             mseBASSTIter[key][bMaxIter] = mse[-2]
         print(f'MSE: {mseASSTIter[key]}')
         print('----------')
@@ -477,8 +410,8 @@ def main():
     for key, mse in mseBASSTIter.items():
         bAsstAx.plot(iters, mse, label=key)
 
-    asstAx.set_ylim(0, 1)
-    bAsstAx.set_ylim(0, 1)
+    asstAx.set_ylim(0, 1.5)
+    bAsstAx.set_ylim(0, 1.5)
 
     asstAx.legend()
     bAsstAx.legend()
@@ -529,8 +462,6 @@ def main():
                 t,
                 f,
                 tr,
-                False,
-                np.array([]),
                 config,
                 bLen=bLen,
                 bMaxIters=bMaxIter,
@@ -538,7 +469,7 @@ def main():
                 threshold=threshold,
                 itl=(True if key.split('/')[0] == 'ITL' else False),
             )
-            print(f'MSE ---> {mse[-2]}')
+            print(f'    MSE ---> {mse[-2]}')
             mseSnrASSTIter[key][i] = mse[-3]
             mseSnrBASSTIter[key][i] = mse[-2]
             mseSnrSST[i] = mse[1]

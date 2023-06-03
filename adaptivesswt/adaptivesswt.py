@@ -240,10 +240,10 @@ def adaptive_sswt(
         logger.debug("******************* Iteration: %d ********************\n", i)
         _, limits = getDeltaAndBorderFreqs(freqs)
         if itl:
-            spectrum = (abs(sst)).sum(axis=1) #/ (getScale(freqs, kwargs['ts'], kwargs['wcf'])[:, None])).sum(axis=1)  # type: ignore
+            spectrum = ((abs(sst)) / (getScale(freqs, kwargs['ts'], kwargs['wcf'])[:, None])).sum(axis=1)  # type: ignore
             # getScale always returns ndarray in this case
         else:
-            spectrum = (abs(cwt)).sum(axis=1) #/ (getScale(freqs, kwargs['ts'], kwargs['wcf'])[:, None])).sum(axis=1)  # type: ignore
+            spectrum = ((abs(cwt)) / (getScale(freqs, kwargs['ts'], kwargs['wcf'])[:, None])).sum(axis=1)  # type: ignore
             # getScale always returns ndarray in this case
 
 
@@ -504,7 +504,6 @@ def main():
         filemode='w',
         format='%(levelname)s - %(asctime)s - %(name)s:\n %(message)s',
     )
-    logger = logging.getLogger(__name__)
     logger.setLevel(logging.DEBUG)
 
     from os.path import abspath, dirname
@@ -534,7 +533,7 @@ def main():
 
     #%% Setup Figures
 
-    compFig = plt.figure(dpi=300)
+    compFig = plt.figure(dpi=300, figsize=(17/2.54, 12/2.54))
         #f'Method comparison - N = {num_freqs} frequencies', figsize=(10, 6), dpi=600
     gs = compFig.add_gridspec(2, 3)
     ifAx = plt.subplot(
@@ -561,7 +560,7 @@ def main():
     )
     bAsstAx.sharey(sstAx)
 
-    gs.tight_layout(compFig, rect=[0, 0.03, 1, 0.95])
+    # gs.tight_layout(compFig, rect=[0, 0.03, 1, 0.95])
 
     #%% Test signals
     # f, sig = generator.testChirp(t, 10, 25)
@@ -673,6 +672,7 @@ def main():
     plot_batched_tf_repr(batchs, ts, bAsstAx)
 
     # save figure
+    compFig.set_tight_layout(True)
     compFig.savefig(str(parentDir / 'docs/img/method_comparison.pdf'), bbox_inches='tight')
 
     fBatchList = []
