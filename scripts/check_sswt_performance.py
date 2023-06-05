@@ -69,7 +69,6 @@ def ckeck_complexity_distribution(
         wbw=2,
         wavelet_bounds=(-8, 8),
         threshold=1 / 10,
-        num_processes=24,
         plot_filters=False,
     )
     thrsh = 1 / 5
@@ -97,12 +96,15 @@ def ckeck_complexity_distribution(
     # Adaptive stage runs maxIters times, menwhile sst runs maxIters+1 times
     # (e.g. maxIters = 0 runs the non-adaptive algorithm, i.e. sst only):
     a_times = asst_times / maxIters - sst_times * (maxIters + 1) / maxIters
+    a_times[0] = asst_times[0] / maxIters - sst_times[0] / maxIters
 
     return maxSignalTimes, a_times, sst_times, asst_times
 
 
 def main():
     import matplotlib
+
+    plt.rcParams['text.usetex'] = True
 
     font = {'family': 'normal', 'weight': 'normal', 'size': 10}
 
