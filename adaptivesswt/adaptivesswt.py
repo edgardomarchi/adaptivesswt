@@ -3,24 +3,20 @@
 import logging
 import queue
 import threading
-
-logger = logging.getLogger(__name__)
-
 from typing import List, Tuple, Union
 
 import matplotlib.pyplot as plt
 import numpy as np
-
-plt.rcParams['text.usetex'] = True
-
+import scipy.signal as sp
 import scipy.sparse.linalg as la
 
 from .configuration import Configuration
 from .sswt import reconstruct, reconstructCWT, sswt
 from .utils import signal_utils as generator
 from .utils.freq_utils import getDeltaAndBorderFreqs, getScale
-from .utils.plot_utils import plotSSWTminiBatchs
+from .utils.plot_utils import plot_batched_tf_repr, plot_tf_repr
 
+logger = logging.getLogger(__name__)
 
 def _getFreqsPerBand(
     nvPerBand: np.ndarray,
@@ -143,29 +139,27 @@ def _calcNumWavelets(
 
     if plotBands:
         fig, axes = plt.subplots(2, 1, sharex=True, dpi=300)
-        axes[0].plot(freqs, abs(spectrum))
-        axes[0].set_title('Signal spectrum', fontsize=18)
-        axes[0].set_ylabel(r'$\hat{E}_{N\!t}$', fontsize=18)
+        axes[0].plot(freqs, abs(spectrum)/abs(spectrum).max())
+        axes[0].set_title('Signal spectrum')
+        axes[0].set_ylabel(r'$\hat{E}_{N\!t}$')
         width = np.min(np.diff(freqs)) * 0.8
         axes[1].bar(freqs, numWavelets, width=width)
-        axes[1].set_ylabel(r'$K^*_k$', fontsize=18)
+        axes[1].set_ylabel(r'$K^*_k$')
         axes[0].text(
-            45, 1, f'k={len(spectrum)}', ha="right", va="top", fontsize=18)
-        #axes[0].legend(f'k={len(spectrum)}', loc='upper right')
-        axes[1].set_xlabel(r'[Hz]', loc='right', fontsize=18)
-        #fig.suptitle(f'K = {len(spectrum)} frequencies')
+            45, 1, f'k={len(spectrum)}', ha="right", va="top")
+        axes[1].set_xlabel(r'[Hz]', loc='right')
 
     return numWavelets
 
 
-def getFreqsMPM(signal: np.ndarray, numFreqs: int, fs: float) -> np.ndarray:
+def getFreqsMPM(signal: np.ndarray, num_freqs: int, fs: float) -> np.ndarray:
     """Returns estimated signal frequencies using Matrix Pencil Method.
 
     Parameters
     ----------
     signal : np.ndarray
         Signal to be analyzed
-    numFreqs : int
+    num_freqs : int
         Number of frequencies to detect
     fs : float
         Sampling frequency
@@ -173,7 +167,7 @@ def getFreqsMPM(signal: np.ndarray, numFreqs: int, fs: float) -> np.ndarray:
     Returns
     -------
     np.ndarray
-        Array containing `numFreqs` estimated frequencies
+        Array containing `num_freqs` estimated frequencies
     """
 
     N = len(signal)
@@ -187,7 +181,7 @@ def getFreqsMPM(signal: np.ndarray, numFreqs: int, fs: float) -> np.ndarray:
         Y0[:, i] = signal[(L - 1 - i) : (N - 1 - i)]
         Y1[:, i] = signal[(L - i) : (N - i)]
 
-    U, S, VT = la.svds(Y0, numFreqs)
+    U, S, VT = la.svds(Y0, num_freqs)
     Ainv = np.diag(S**-1)
     V0 = VT.T.conj()  # [:, 0:M]
     U0 = U  # [:, 0:M]
@@ -254,7 +248,7 @@ def adaptive_sswt(
 
 
         numWavelets = _calcNumWavelets(
-            spectrum, freqs, method, thrsh, plotBands=kwargs.get('plotFilt', False)
+            spectrum, freqs, method, thrsh, plotBands=kwargs.get('plot_filters', False)
         )
 
         logger.debug("Spectrum energy normalized per band:\n%s\n", spectrum)
@@ -268,7 +262,7 @@ def adaptive_sswt(
             break
 
         freqs_adp = _getFreqsPerBand(
-            numWavelets, kwargs['minFreq'], kwargs['maxFreq'], freqBands=limits
+            numWavelets, kwargs['min_freq'], kwargs['max_freq'], freqBands=limits
         )
         scales_adp = getScale(freqs_adp, kwargs['ts'], kwargs['wcf'])
 
@@ -276,7 +270,7 @@ def adaptive_sswt(
         kwargs['custom_scales'] = scales_adp
         sst, cwt, freqs, wab, tail = sswt(signal, **kwargs)
         if not sst.any():
-            logger.warning('\nATENTION! SSWT contains only 0s\n\t Analized frecuencies: %s \n\n', freqs)
+            logger.warning('\nATENTION! SST contains only 0s\n\t Analized frecuencies: %s \n\n', freqs)
 
     return sst, freqs, wab, tail
 
@@ -290,14 +284,14 @@ def adaptive_sswt_overlapAndAdd(
     itl: bool = False,
     **kwargs,
 ) -> List[Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]]:
-    """Calculates the adaptive SSWT for batches of the input signal using overlapAndAdd method.
+    """Calculates the adaptive SST for batches of the input signal using overlapAndAdd method.
 
     Parameters
     ----------
     batchSize : int
         Size of each batch
     signal : np.ndarray
-        Signal to analyze with the A-SSWT
+        Signal to analyze with the ASST
     maxIters : int, optional
         Maximum number of iterations of the adaptive algorithm, by default 2
     method : {'proportional','threshold'}, optional
@@ -310,7 +304,7 @@ def adaptive_sswt_overlapAndAdd(
     Returns
     -------
     List[Tuple[np.ndarray, np.ndarray, np.ndarray]]
-        List of tuples containin return arrays of `adaptive_sswt()`. I.e. [(ASSWT matrix, frequencies, wab, tail),...].
+        List of tuples containin return arrays of `adaptive_sswt()`. I.e. [(ASST matrix, frequencies, wab, tail),...].
     """
 
     tail = np.zeros(batchSize)
@@ -345,14 +339,14 @@ def adaptive_sswt_slidingWindow(
     itl: bool = False,
     **kwargs,
 ) -> List[Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]]:
-    """Calculates the adaptive SSWT for batches of the input signal using sliding window method.
+    """Calculates the adaptive SST for batches of the input signal using sliding window method.
 
     Parameters
     ----------
     batchSize : int
         Size of each batch
     signal : np.ndarray
-        Signal to analyze with the A-SSWT
+        Signal to analyze with the ASST
     maxIters : int, optional
         Maximum number of iterations of the adaptive algorithm, by default 2
     method : {'proportional','threshold'}, optional
@@ -365,7 +359,7 @@ def adaptive_sswt_slidingWindow(
     Returns
     -------
     List[Tuple[np.ndarray, np.ndarray, np.ndarray]]
-        List of tuples containing return arrays of `adaptive_sswt()`. I.e. [(ASSWT matrix, frequencies, tail),...].
+        List of tuples containing return arrays of `adaptive_sswt()`. I.e. [(ASST matrix, frequencies, tail),...].
     """
     padding = kwargs.get('pad', 0)
     numBatchs = int(np.ceil(len(signal) / batchSize))
@@ -493,6 +487,25 @@ def main():
 
     Call it only if you need to test if the package is working.
     """
+    import matplotlib
+    font = {'family' : 'normal',
+            'weight' : 'normal',
+            'size'   : 4}
+    matplotlib.rc('font', **font)
+    plt.rcParams['text.usetex'] = True
+
+    # Uncomment if you have pyqt installed:
+    # import matplotlib
+    # matplotlib.use('Qt5Agg')
+    plt.close('all')
+
+    logging.basicConfig(
+        filename='adaptivesswt.log',
+        filemode='w',
+        format='%(levelname)s - %(asctime)s - %(name)s:\n %(message)s',
+    )
+    logger.setLevel(logging.DEBUG)
+
     from os.path import abspath, dirname
     from pathlib import Path
 
@@ -500,25 +513,6 @@ def main():
 
     parentDir = Path(dirname(dirname(abspath(__file__))))
 
-    import matplotlib
-    font = {'family' : 'normal',
-            'weight' : 'normal',
-            'size'   : 10}
-
-    matplotlib.rc('font', **font)
-
-    # Uncomment if you have pyqt installed:
-    # import matplotlib
-    # matplotlib.use('Qt5Agg')
-
-    plt.close('all')
-    logging.basicConfig(
-        filename='adaptivesswt.log',
-        filemode='w',
-        format='%(levelname)s - %(asctime)s - %(name)s:\n %(message)s',
-    )
-    logger = logging.getLogger(__name__)
-    logger.setLevel(logging.DEBUG)
 
     #%% Parameters
 
@@ -529,16 +523,18 @@ def main():
     wcf = 1
     wbw = 10
 
-    maxFreq = 50
-    minFreq = 10
-    numFreqs = 12
+    max_freq = 50
+    min_freq = 10
+    num_freqs = 16
+    specgram_num_freqs = int(num_freqs / (max_freq - min_freq) * (fs/2))
 
-    t, ts = np.linspace(0, stopTime, signalLen, endpoint=False, retstep=True)
+    t, step = np.linspace(0, stopTime, signalLen, endpoint=False, retstep=True)
+    ts = float(step)
 
     #%% Setup Figures
 
-    compFig = plt.figure(dpi=300)
-        #f'Method comparison - N = {numFreqs} frequencies', figsize=(10, 6), dpi=600
+    compFig = plt.figure(dpi=300, figsize=(17/2.54, 12/2.54))
+        #f'Method comparison - N = {num_freqs} frequencies', figsize=(10, 6), dpi=600
     gs = compFig.add_gridspec(2, 3)
     ifAx = plt.subplot(
         gs[0, 0],
@@ -546,70 +542,78 @@ def main():
     wtAx = plt.subplot(
         gs[0, 2],
     )
+    wtAx.sharey(ifAx)
     spAx = plt.subplot(
         gs[0, 1],
     )
+    spAx.sharey(ifAx)
     sstAx = plt.subplot(
         gs[1, 0],
     )
+    sstAx.sharex(ifAx)
     asstAx = plt.subplot(
         gs[1, 1],
     )
+    asstAx.sharey(sstAx)
     bAsstAx = plt.subplot(
         gs[1, 2],
     )
-    ifAx.get_shared_y_axes().join(wtAx, ifAx, spAx)
-    sstAx.get_shared_y_axes().join(sstAx, asstAx, bAsstAx)
-    gs.tight_layout(compFig, rect=[0, 0.03, 1, 0.95])
+    bAsstAx.sharey(sstAx)
+
+    # gs.tight_layout(compFig, rect=[0, 0.03, 1, 0.95])
 
     #%% Test signals
     # f, sig = generator.testChirp(t, 10, 25)
     # _, sig = testUpDownChirp(t,1,10)
     # f, sig = generator.quadraticChirp(t, 40, 30)
-    # frqs, sig = generator.dualQuadraticChirps(t, (28, 30), (42, 38))
+    frqs, sig = generator.dualQuadraticChirps(t, (28, 30), (42, 38))
     # f, sig = generator.testSig(t)
-    frqs, sig = generator.tritone(t, 20, 10 * np.pi, 40)
+    # frqs, sig = generator.tritone(t, 20, 10 * np.pi, 40)
     # f, sig = generator.testSine(t,15)
     # f = 15*np.ones_like(t)
     # sig = generator.delta(t, 2)
-    # fqs, sig = generator.crossChrips(t, 1, 20, 4)
+    # frqs, sig = generator.crossChrips(t, 20, 40, 3)
     # f = fqs[0]
     # sig = sig[:signalLen]
     # f = f[:signalLen]
 
-    f1, f2, f3 = frqs
+    f1, f2 = frqs
     ifAx.plot(t[: len(sig)], f1)
     ifAx.plot(t[: len(sig)], f2)
-    ifAx.plot(t[: len(sig)], f3)
+    # ifAx.plot(t[: len(sig)], f3)
     ifAx.set_title('Instantaneous frequency')
+    ifAx.set_xlabel('time [s]', loc='right')
+    ifAx.set_ylabel('freq. [Hz]',loc='top')
 
-    #%% SSWT, CWT and Spectrogram
+    #%% SST, CWT and Spectrogram
 
     sstConfig = Configuration(
-        minFreq=minFreq,
-        maxFreq=maxFreq,
-        numFreqs=numFreqs+12,
+        min_freq=min_freq,
+        max_freq=max_freq,
+        num_freqs=num_freqs,
         ts=ts,
         wcf=wcf,
         wbw=wbw,
-        waveletBounds=(-8, 8),
+        wavelet_bounds=(-8, 8),
         threshold=sig.max() / (100)
     )
 
     config = Configuration(
-        minFreq=minFreq,
-        maxFreq=maxFreq,
-        numFreqs=numFreqs,
+        min_freq=min_freq,
+        max_freq=max_freq,
+        num_freqs=num_freqs,
         ts=ts,
         wcf=wcf,
         wbw=wbw,
-        waveletBounds=(-8, 8),
+        wavelet_bounds=(-8, 8),
         threshold=sig.max() / (100)
     )
 
-    spAx.specgram(sig, NFFT=int(numFreqs), Fs=fs, scale='linear', noverlap=numFreqs - 1)
+    sp_f, sp_t, ssp = sp.spectrogram(sig, fs=fs, nperseg=specgram_num_freqs, noverlap=specgram_num_freqs-1)
+    valid_fqs = np.logical_and(sp_f >= min_freq, sp_f <= max_freq)
+    # spAx.specgram(sig, NFFT=int(specgram_num_freqs), Fs=fs, scale='linear', noverlap=specgram_num_freqs - 1, cmap='plasma')
+    plot_tf_repr(ssp[valid_fqs,:], sp_t, sp_f[valid_fqs], spAx)
     spAx.set_title('Spectrogram')
-    spAx.set_ylim([minFreq, maxFreq])
 
     sst, cwt, freqs, wab, tail = sswt(sig, **sstConfig.asdict())
     reCwt = renyi_entropy(cwt)
@@ -617,20 +621,23 @@ def main():
     reSst = renyi_entropy(sst)
     print(f'Entropy of SST = {reSst}')
 
-    wtAx.pcolormesh(t, freqs, np.abs(cwt), cmap='plasma', shading='gouraud')
+    # wtAx.pcolormesh(t, freqs, np.abs(cwt), cmap='plasma', shading='gouraud', antialiased=True)
+    plot_tf_repr(cwt, t, freqs, wtAx)
     wtAx.set_title('Wavelet Transform')
 
-    sstAx.pcolormesh(t, freqs, np.abs(sst), cmap='plasma', shading='gouraud')
+    # sstAx.pcolormesh(t, freqs, np.abs(sst), cmap='plasma', shading='gouraud', antialiased=True)
+    # sstAx.imshow(np.abs(sst)[::-1,:], cmap=plt.cm.plasma, extent=[t.min(),t.max(),freqs.min(),freqs.max()], aspect='auto')
+    plot_tf_repr(sst, t, freqs, sstAx)
     sstAx.set_title('Synchrosqueezing Transform')
 
     scales = getScale(freqs, config.ts, config.wcf)
     signalR_cwt = reconstructCWT(cwt, config.wav, scales, freqs)  # type: ignore # scales is always a ndarray
-    signalR_sst = reconstruct(sst, config.C_psi, freqs)
+    signalR_sst = reconstruct(sst, config.c_psi, freqs)
 
     f_sst = freqs[np.argmax(abs(sst), axis=0)]
     f_cwt = freqs[np.argmax(abs(cwt), axis=0)]
 
-    #%% Adaptive SSWT and minibatch A SSWT
+    #%% Adaptive SST and minibatch A SST
     maxIters = 2
     threshold = config.threshold * 2
     method = 'proportional'
@@ -646,10 +653,11 @@ def main():
     print(f'Entropy of ASST = {reAsst}')
 
     f_asst = aFreqs[np.argmax(abs(asst), axis=0)]
-    asstAx.pcolormesh(t, aFreqs, np.abs(asst), cmap='plasma', shading='gouraud')
-    asstAx.set_title('Adaptive SSWT')
+    plot_tf_repr(asst, t, aFreqs, asstAx)
+    # asstAx.pcolormesh(t, aFreqs, np.abs(asst), cmap='plasma', shading='gouraud')
+    asstAx.set_title('Adaptive SST')
 
-    signalR_asst = reconstruct(asst, config.C_psi, aFreqs)
+    signalR_asst = reconstruct(asst, config.c_psi, aFreqs)
 
     ## Minibatch
 
@@ -661,10 +669,11 @@ def main():
     batchs = adaptive_sswt_slidingWindow(
         bLen, sig, bMaxIters, method, threshold, itl, **config.asdict()
     )
-    plotSSWTminiBatchs(batchs, bAsstAx)
+    plot_batched_tf_repr(batchs, ts, bAsstAx)
 
     # save figure
-    compFig.savefig(parentDir / 'docs/img/method_comparison.pdf', bbox_inches='tight')
+    compFig.set_tight_layout(True)
+    compFig.savefig(str(parentDir / 'docs/img/method_comparison.pdf'), bbox_inches='tight')
 
     fBatchList = []
     # Recover instantaneous frequencies:
@@ -677,9 +686,9 @@ def main():
     #%% Instantaneous frequencies across methods
     fig, ax = plt.subplots(1, dpi=300)
     ax.plot(t[: len(sig)], f_cwt, label='CWT')
-    ax.plot(t[: len(sig)], f_sst, label='SSWT')
-    ax.plot(t[: len(sig)], f_asst, label='A-SSWT')
-    ax.plot(t[: len(f_batch)], f_batch, label=f'A-SSWT ({batch_time}s batchs)')
+    ax.plot(t[: len(sig)], f_sst, label='SST')
+    ax.plot(t[: len(sig)], f_asst, label='ASST')
+    ax.plot(t[: len(f_batch)], f_batch, label=f'ASST ({batch_time}s batchs)')
     ax.plot(t[: len(sig)], f1, label='Signal')
     ax.legend()
     fig.suptitle('Instantaneous frequencies')
@@ -691,8 +700,8 @@ def main():
         label='Original Signal',
         alpha=0.8,
     )
-    ax.plot(t[: len(signalR_sst)], signalR_sst, label='SSWT Signal')
-    ax.plot(t[: len(signalR_asst)], signalR_asst, label='A-SSWT Signal')
+    ax.plot(t[: len(signalR_sst)], signalR_sst, label='SST Signal')
+    ax.plot(t[: len(signalR_asst)], signalR_asst, label='ASST Signal')
     ax.legend()
     fig.suptitle('Signal reconstruction')
 
@@ -713,7 +722,7 @@ def main():
     ax.plot(
         t[: len(f_batch)],
         mse_asst_batch,
-        label=f'A-SST Batch - MSE = {mse_asst_batch_total:.3}',
+        label=f'B-ASST - MSE = {mse_asst_batch_total:.3}',
     )
     ax.legend()
     fig.suptitle('MSE(f)')
@@ -723,16 +732,49 @@ def main():
     threshold = 0.15  # config.threshold * 3
     method = 'threshold'
     itl = False
-    config.plotFilt = True
+    config.plot_filters = True
 
     asst, aFreqs, wab, tail = adaptive_sswt(
         sig, maxIters, method, threshold, itl, **config.asdict()
     )
 
+#%% Compare methods
+    N=256
+
+    test_config = Configuration(
+        min_freq = 1,
+        max_freq = N/2,
+        num_freqs= N,
+        ts=1/N,
+        wcf=1,
+        wbw=3,
+        wavelet_bounds=(-8,8),
+        transform='sst'
+    )
+    max_iters = 1
+    method = 'proportional'
+    itl = True
+
+    t, step = np.linspace(0, 1, N, endpoint=False, retstep=True)
+    ts = float(step)
+    f, signal = generator.matlab_comparison_signals(t, ts)
+    import time as clock
+    prev = clock.time()
+    asst, aFreqs, _, _ = adaptive_sswt(
+        signal, max_iters, method, threshold, itl, **test_config.asdict()
+    )
+    logger.info('Time to run ASST with N = %s: %s s',N, clock.time()-prev)
+    mCompFig, mCompAx = plt.subplots(1, figsize=(5/2.54,4/2.54), dpi=300)
+    mCompFig.suptitle('Signal for comparison')
+    plot_tf_repr(asst,np.linspace(0, N, N, endpoint=False),
+                 aFreqs, mCompAx)
+    mCompAx.invert_yaxis()
+
     plt.show(block=False)
 
     resp = input('Press "T" to time performance. Press any ohter key to end...')
     plt.close('all')
+    config.plot_filters = False
 
     if resp == 'T':
         import timeit
@@ -740,9 +782,11 @@ def main():
         bSswt_fix = lambda: adaptive_sswt_slidingWindow(
             bLen, sig, bMaxIters, method, threshold, itl, **config.asdict()
         )
-        timingProc = timeit.timeit(bSswt_fix, number=5) / 5 / len(sig)
-        print(f'Number of processes : {config.numProc}')
-        print(f'Average timing per signal sample = {timingProc} s/s')
+        timingProc = timeit.timeit(bSswt_fix, number=5) / 5
+        timingProcPS = timingProc / len(sig)
+        print(f'Average execution time: {timingProc}')
+        print(f'Number of processes : {config.num_processes}')
+        print(f'Average timing per signal sample = {timingProcPS} s/s')
 
 
 if __name__ == '__main__':

@@ -24,6 +24,7 @@ from os.path import abspath, dirname
 from pathlib import Path
 from zipfile import ZipFile
 
+import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -33,12 +34,20 @@ from adaptivesswt.utils.freq_utils import calcScalesAndFreqs
 from adaptivesswt.utils.import_utils import import_mat, raw2Data
 from adaptivesswt.utils.process_data import analyze, extractPhase, intDecimate
 
+# Plotting parameters
+font = {'family': 'normal', 'weight': 'normal', 'size': 8}
+
+matplotlib.rc('font', **font)
+plt.rcParams['text.usetex'] = True
+plt.rcParams['lines.linewidth'] = 1
+dpi = 300
+
+
 logging.basicConfig(format='%(levelname)s - %(asctime)s - %(name)s - %(message)s')
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
-plt.rcParams.update({'font.size': 16})
-parentDir = Path(dirname(dirname(abspath(__file__))))
+parent_dir = Path(dirname(dirname(abspath(__file__))))
 
 # Command line arguments
 ap = argparse.ArgumentParser()
@@ -79,21 +88,19 @@ signal, time = extractPhase(data)
     signal, data.fs, 800, 40, 6
 )
 
-# Plotting parameters
-dpi = 300
 
 #### PCG
 logger.info('Analizing PCG frequencies...')
 configPCG = Configuration(
-    minFreq=15,
-    maxFreq=200,
-    numFreqs=50,
+    min_freq=15,
+    max_freq=200,
+    num_freqs=50,
     ts=1 / pcgFs,
     wcf=1,
     wbw=8,
-    waveletBounds=(-8, 8),
+    wavelet_bounds=(-8, 8),
     threshold=abs(signalPCG).max() / 1e6,
-    numProc=4,
+    transform='tsst',
 )
 
 pcgIters = 2
@@ -109,7 +116,7 @@ pcgBLen = int(
 bPad = int(pcgBLen * 0.9)
 configPCG.pad = bPad
 
-plotPCG = False
+plotPCG = True
 
 sstPCG, aSstPCG, freqsPCG, pcgBatchs, pcgFig = analyze(
     signalPCG,
@@ -125,54 +132,76 @@ if plotPCG:
     pcgFig.suptitle('PCG')  # type: ignore
 
 _, sstFreqs, _, _ = calcScalesAndFreqs(
-    respFs, configPCG.wcf, configPCG.minFreq, configPCG.maxFreq, configPCG.numFreqs
+    respFs, configPCG.wcf, configPCG.min_freq, configPCG.max_freq, configPCG.num_freqs
 )
 
-signalPCGSynth = reconstruct(aSstPCG, configPCG.C_psi, freqsPCG)
-sstSignalPCGSynth = reconstruct(sstPCG, configPCG.C_psi, sstFreqs)
+signalPCGSynth = reconstruct(aSstPCG, configPCG.c_psi, freqsPCG)
+sstSignalPCGSynth = reconstruct(sstPCG, configPCG.c_psi, sstFreqs)
 
 signalPCGBSynthList = []
-for (bAsstPCG, bFreqsPCG, _) in pcgBatchs:
-    signalPCGBSynthList.append(reconstruct(bAsstPCG, configPCG.C_psi, bFreqsPCG))
+for bAsstPCG, bFreqsPCG, _, _ in pcgBatchs:
+    signalPCGBSynthList.append(reconstruct(bAsstPCG, configPCG.c_psi, bFreqsPCG))
 
 signalPCGBSynth = np.array(signalPCGBSynthList[1:-1]).flatten()
 signalPCGBSynth = np.concatenate(
     (signalPCGBSynthList[0], signalPCGBSynth, signalPCGBSynthList[-1])
 )
 
-fig, ax = plt.subplots(1, 1)
-ax.plot(time, -1 * data.ecg / abs(data.ecg).max(), label='ECG')
-ax.plot(
-    time[:: int(data.fs / pcgFs)],
-    sstSignalPCGSynth / abs(sstSignalPCGSynth)[200:-200].max(),
-    label=f'SSWT - Radar',
+start_t, stop_t = 24.0, 29.5
+plot_time = np.logical_and(time > start_t, time < stop_t)
+
+fig, ax = plt.subplots(4, 1, sharex=True, figsize=(17 / 2.54, 12 / 2.54))
+ax[0].plot(
+    time[plot_time],
+    -1 * data.ecg[plot_time] / abs(data.ecg[plot_time]).max(),
+    label='ECG',
 )
-ax.plot(
-    time[:: int(data.fs / pcgFs)],
-    signalPCGSynth / abs(signalPCGSynth)[200:-200].max(),
-    label=f'SSWT ADPT - Radar',
+ax[0].plot(
+    time[plot_time],
+    -1 * data.pcg[plot_time] / abs(data.pcg[plot_time]).max(),
+    label='PCG',
 )
-ax.plot(
-    time[:: int(data.fs / pcgFs)],
-    signalPCGBSynth / abs(signalPCGBSynth[200:-200]).max(),
-    label=f'SSWT B-ADPT - Radar',
+ax[1].plot(
+    time[plot_time][:: int(data.fs / pcgFs)],
+    sstSignalPCGSynth[plot_time[:: int(data.fs / pcgFs)]]
+    / abs(sstSignalPCGSynth[plot_time[:: int(data.fs / pcgFs)]]).max(),
+    label='SST - Radar',
 )
-ax.legend()
-fig.suptitle('PCG')
+ax[2].plot(
+    time[plot_time][:: int(data.fs / pcgFs)],
+    signalPCGSynth[plot_time[:: int(data.fs / pcgFs)]]
+    / abs(signalPCGSynth[plot_time[:: int(data.fs / pcgFs)]]).max(),
+    'g',
+    label='ASST - Radar',
+)
+ax[3].plot(
+    time[plot_time][:: int(data.fs / pcgFs)],
+    signalPCGBSynth[plot_time[:: int(data.fs / pcgFs)]]
+    / abs(signalPCGBSynth[plot_time[:: int(data.fs / pcgFs)]]).max(),
+    'r',
+    label='B-ASST - Radar',
+)
+for axis in ax:
+    axis.legend()
+# fig.suptitle('PCG')
+ax[0].set_ylabel('amplitude (normalized)', loc='top')
+ax[3].set_xlabel('time [s]', loc='right')
+fig.set_tight_layout(True)
+fig.savefig(str(parent_dir / 'fig' / 'fig_pcg.pdf'), dpi=dpi)
 
 
 #### Pulse
 logger.info('Analizing Pulse frequencies...')
 configPulse = Configuration(
-    minFreq=1,
-    maxFreq=3,
-    numFreqs=16,
+    min_freq=1,
+    max_freq=3,
+    num_freqs=16,
     ts=1 / pulseFs,
     wcf=1,
     wbw=10,
-    waveletBounds=(-8, 8),
+    wavelet_bounds=(-8, 8),
     threshold=abs(signalPulse).max() / 1e5,
-    numProc=4,
+    num_processes=4,
 )
 
 pulseIters = 1
@@ -205,55 +234,81 @@ sstPulse, aSstPulse, freqsPulse, pulseBatchs, pulseFig = analyze(
     plotPulse,
 )
 if plotPulse:
-    #pulseFig.suptitle('Pulse')  # type: ignore
+    # pulseFig.suptitle('Pulse')  # type: ignore
     pulseFig.savefig(  # type: ignore
-        parentDir / 'docs/img/pulse_method_comparison.png',
+        str(parent_dir / 'fig' / 'fig_pulse_method_comparison.pdf'),
         dpi=dpi,
-        bbox_inches='tight',
+        # bbox_inches='tight'
     )
 
-signalPulseSynth = reconstruct(aSstPulse, configPulse.C_psi, freqsPulse)
+_, sstFreqs, _, _ = calcScalesAndFreqs(
+    pulseFs,
+    configPulse.wcf,
+    configPulse.min_freq,
+    configPulse.max_freq,
+    configPulse.num_freqs,
+)
+
+signalPulseSynth = reconstruct(aSstPulse, configPulse.c_psi, freqsPulse)
+sstSignalPulseSynth = reconstruct(sstPulse, configPulse.c_psi, sstFreqs)
 
 signalPulseBSynthList = []
-for (bAsstPulse, bFreqsPulse, _) in pulseBatchs:
+for bAsstPulse, bFreqsPulse, _, _ in pulseBatchs:
     signalPulseBSynthList.append(
-        reconstruct(bAsstPulse, configPulse.C_psi, bFreqsPulse)
+        reconstruct(bAsstPulse, configPulse.c_psi, bFreqsPulse)
     )
 
 signalPulseBSynth = np.array(signalPulseBSynthList[1:-1]).flatten()
 signalPulseBSynth = np.concatenate(
     (signalPulseBSynthList[0], signalPulseBSynth, signalPulseBSynthList[-1])
 )
-
-fig, ax = plt.subplots(1, 1)
-ax.plot(time, -1 * data.ecg / abs(data.ecg).max(), label='ECG')
+start_t, stop_t = 32.0, 45.0
+plot_time = np.logical_and(time > start_t, time < stop_t)
+fig, ax = plt.subplots(1, 1, dpi=dpi, figsize=(17 / 2.54, 6 / 2.54))
 ax.plot(
-    time[:: int(data.fs / pulseFs)],
-    signalPulseSynth / abs(signalPulseSynth).max(),
-    label=f'SSWT ADPT - Radar',
+    time[plot_time],
+    -1 * data.ecg[plot_time] / abs(data.ecg[plot_time]).max(),
+    label='ECG (raw)',
 )
 ax.plot(
-    time[:: int(data.fs / pulseFs)],
-    signalPulseBSynth / abs(signalPulseBSynth).max(),
-    label=f'SSWT B-ADPT - Radar',
+    time[plot_time][:: int(data.fs / pulseFs)],
+    signalPulseSynth[plot_time[:: int(data.fs / pulseFs)]]
+    / abs(signalPulseSynth[plot_time[:: int(data.fs / pulseFs)]]).max(),
+    label='ASST - Radar',
+)
+ax.plot(
+    time[plot_time][:: int(data.fs / pulseFs)],
+    sstSignalPulseSynth[plot_time[:: int(data.fs / pulseFs)]]
+    / abs(sstSignalPulseSynth[plot_time[:: int(data.fs / pulseFs)]]).max(),
+    label='SST - Radar',
+)
+ax.plot(
+    time[plot_time][:: int(data.fs / pulseFs)],
+    signalPulseBSynth[plot_time[:: int(data.fs / pulseFs)]]
+    / abs(signalPulseBSynth[plot_time[:: int(data.fs / pulseFs)]]).max(),
+    label='B-ASST - Radar',
 )
 ax.legend()
-fig.suptitle('Pulse')
+ax.set_xlabel('time [s]', loc='right')
+ax.set_ylabel('amplitude (normalized)', loc='top')
+# fig.suptitle('Pulse')
+fig.set_tight_layout(True)
+fig.savefig(str(parent_dir / 'fig' / 'fig_pulse.pdf'), dpi=dpi)
 
 #### Respiration:
 logger.info('Analizing Respiration frequencies...')
 configResp = Configuration(
-    minFreq=0.2 * respFs / len(signalResp),
-    maxFreq=1,
-    numFreqs=16,
+    min_freq=0.2 * respFs / len(signalResp),
+    max_freq=1,
+    num_freqs=16,
     ts=1 / respFs,
     wcf=1,
     wbw=10,
-    waveletBounds=(-8, 8),
+    wavelet_bounds=(-8, 8),
     threshold=abs(signalResp).max() / 10000,
-    numProc=4,
+    num_processes=4,
 )
-print(f'Min freq: {configResp.minFreq}')
+print(f'Min freq: {configResp.min_freq}')
 
 respIters = 1
 respMethod = 'proportional'
@@ -284,29 +339,47 @@ if plotResp:
     respFig.suptitle('Respiration')  # type: ignore
 
 _, sstFreqs, _, _ = calcScalesAndFreqs(
-    respFs, configResp.wcf, configResp.minFreq, configResp.maxFreq, configResp.numFreqs
+    respFs,
+    configResp.wcf,
+    configResp.min_freq,
+    configResp.max_freq,
+    configResp.num_freqs,
 )
 
-signalRespSynth = reconstruct(aSstResp, configResp.C_psi, freqsResp)
-sstSignalRespSynth = reconstruct(sstResp, configResp.C_psi, sstFreqs)
+signalRespSynth = reconstruct(aSstResp, configResp.c_psi, freqsResp)
+sstSignalRespSynth = reconstruct(sstResp, configResp.c_psi, sstFreqs)
 
 signalRespBSynthList = []
-for (bAsstResp, bFreqsResp, _) in respBatchs:
-    signalRespBSynthList.append(reconstruct(bAsstResp, configResp.C_psi, bFreqsResp))
+for bAsstResp, bFreqsResp, _, _ in respBatchs:
+    signalRespBSynthList.append(reconstruct(bAsstResp, configResp.c_psi, bFreqsResp))
 
 signalRespBSynth = np.array(signalRespBSynthList[1:-1]).flatten()
 signalRespBSynth = np.concatenate(
     (signalRespBSynthList[0], signalRespBSynth, signalRespBSynthList[-1])
 )
 
-fig, ax = plt.subplots(1, 1)
-ax.plot(
-    time, -1 * data.resp / data.resp.max(), label='Respiration (thermal)'
+fig, ax = plt.subplots(2, 1, dpi=dpi, figsize=(14 / 2.54, 10 / 2.54), sharex=True)
+ap_start, ap_stop = 25.5, 47
+ax[0].plot(
+    time, -1 * data.resp / data.resp.max(), label='Thermal sensor (raw)'
 )  # Gets inverted due thermal method
-ax.plot(time[:: int(data.fs / respFs)], sstSignalRespSynth, label=f'SSWT- Radar')
-ax.plot(time[:: int(data.fs / respFs)], signalRespSynth, label=f'SSWT ADPT - Radar')
-ax.plot(time[:: int(data.fs / respFs)], signalRespBSynth, label=f'SSWT B-ADPT - Radar')
-ax.legend()
-fig.suptitle('Respiration')
+ax[0].axvline(ap_start, color='r')
+ax[0].axvline(ap_stop, color='r')
+ax[0].legend(loc=(0.5, 0.8))
+ax[0].set_title('Respiration signal')
+ax[0].set_ylabel('amplitude', loc='top')
+ax[1].plot(time[:: int(data.fs / respFs)], sstSignalRespSynth, label='SST')
+ax[1].plot(time[:: int(data.fs / respFs)], signalRespSynth, label='ASST')
+ax[1].plot(time[:: int(data.fs / respFs)], signalRespBSynth, label='B-ASST')
+ax[1].axvline(ap_start, color='r')
+ax[1].axvline(ap_stop, color='r')
+ax[1].legend(loc=(0.65, 0.01))
+ax[1].set_xlabel('time [s]', loc='right')
+ax[1].set_title('Analyzed UWB Radar signal')
+fig.set_tight_layout(True)
+fig.savefig(
+    str(parent_dir / 'fig' / 'fig_respiration.pdf'),
+    dpi=dpi,
+)
 
-plt.show()
+# plt.show()

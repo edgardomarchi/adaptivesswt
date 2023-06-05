@@ -222,8 +222,8 @@ def quadraticChirp(t: np.ndarray, fmin: float, fmax: float) -> Tuple[Tuple[np.nd
                       vertex_zero=False)
 
 
-def dualQuadraticChirps(t: np.ndarray, start_and_vertex_freqs1: Tuple,
-                        start_and_vertex_freqs2: Tuple
+def dualQuadraticChirps(t: np.ndarray,
+                        start_and_vertex_freqs1: Tuple, start_and_vertex_freqs2: Tuple
                        ) -> Tuple[Tuple[np.ndarray, np.ndarray], np.ndarray]:
     """Dual quadratic chirp signals
 
@@ -298,3 +298,19 @@ def delta(t: np.ndarray, td: float) -> np.ndarray:
     sig = np.zeros_like(t)
     sig[np.argmax(t>td)] = 1
     return sig
+
+def matlab_comparison_signals(t: np.ndarray, td: float
+                              ) -> Tuple[Tuple[np.ndarray, np.ndarray], np.ndarray]:
+    Fs = 1/td
+    Ts = 1/Fs
+    fi = t*Fs # Hz
+
+    r1, r2, c1, c2 = 50, 64, 12, 34
+
+    x1 = np.cos(2*np.pi*(c1*t+r1/2*(t**2)))
+    x2 = np.cos(2*np.pi*(c2*t+r2/2*(t**2)))
+    f1 = c1+r1*t
+    f2 = c2+r2*t
+    s = x1+x2
+    f = (f1, f2)
+    return f, s

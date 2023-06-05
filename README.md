@@ -3,7 +3,7 @@ Adaptive Synchrosqueezing Wavelet Transform
 
 This Python package computes an adaptive version of the synchrosqueezing transform intended to improve resolution
 of the time-frequency representatiton of a multi-component signal using very few analysis frequencies (wavelets).
-It is aimed towards efficiency, implemented with multithreading and multiprocessing, it provides several configurations parameters to the user in order to be adaptable to a variety of requirements related with 
+It is aimed towards efficiency, implemented with multithreading and multiprocessing, it provides several configurations parameters to the user in order to be adaptable to a variety of requirements related with
 real world applications.
 
 It relies on the [```PyWavelets```](https://github.com/PyWavelets/pywt) package.
@@ -27,7 +27,7 @@ After importing the module it is recommended to create a configuration object to
 >>> import adaptivesswt
 >>> import numpy as np
 >>> signal = np.random.rand(2048)
->>> config = adaptivesswt.Configuration(minFreq=0.1, maxFreq=10, numFreqs=20)
+>>> config = adaptivesswt.Configuration(min_freq=0.1, max_freq=10, num_freqs=20)
 >>> sst, freqs, tail = adaptivesswt.adaptive_sswt(signal, batch_iters=10, method='proportional', thrsh=1/10, otl=False, **config.asdict())
 ```
 ## Examples
