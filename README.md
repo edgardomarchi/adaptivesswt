@@ -40,3 +40,11 @@ Examples and helper scripts can be found in the [scripts folder](scripts/). Chec
 This work is product of a collaboration project between the **Communications Department** of the [_Instituto Nacional de Tecnología Industrial (INTI)_](http://www.inti.gob.ar) and the **Computational Simulation Center (CSC) for Technological Applications** of the [_Consejo Nacional de Investigaciones Científicas y Técnicas (CoNICET)_](http://www.conicet.gov.ar).
 
 ## Citing
+Edgardo Marchi, Marcos Cervetto, Cecilia Galarza,
+Adaptive synchrosqueezing wavelet transform for real-time applications,
+Digital Signal Processing,
+2023,
+104133,
+ISSN 1051-2004,
+[https://doi.org/10.1016/j.dsp.2023.104133](https://doi.org/10.1016/j.dsp.2023.104133).
+([https://www.sciencedirect.com/science/article/pii/S1051200423002282](https://www.sciencedirect.com/science/article/pii/S1051200423002282))
