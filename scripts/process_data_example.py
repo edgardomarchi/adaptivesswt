@@ -368,6 +368,7 @@ ax[0].axvline(ap_stop, color='r')
 ax[0].legend(loc=(0.5, 0.8))
 ax[0].set_title('Respiration signal')
 ax[0].set_ylabel('amplitude', loc='top')
+ax[1].plot(time[:: int(data.fs / respFs)], signalResp, label='Radar')
 ax[1].plot(time[:: int(data.fs / respFs)], sstSignalRespSynth, label='SST')
 ax[1].plot(time[:: int(data.fs / respFs)], signalRespSynth, label='ASST')
 ax[1].plot(time[:: int(data.fs / respFs)], signalRespBSynth, label='B-ASST')
@@ -382,4 +383,4 @@ fig.savefig(
     dpi=dpi,
 )
 
-# plt.show()
+plt.show()

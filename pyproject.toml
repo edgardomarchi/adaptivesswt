@@ -85,9 +85,5 @@ skip-string-normalization = true
 profile = "black"
 
 [build-system]
-requires = ["poetry>=1.0",
-    "setuptools!=50.0",
-    "wheel",
-]
-
-build-backend = "poetry.masonry.api"
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
