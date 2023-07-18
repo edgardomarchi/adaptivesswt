@@ -21,7 +21,7 @@ keywords = ["Synchrosqueezing", "Wavelet", "Transform", "DSP"
 python = "^3.10"
 pywavelets = "^1.2"
 numpy = "^1"
-numba = "^0"
+numba = ">=0.57"
 click = "*"
 scipy = "*"
 matplotlib = { version = "*", optional = true }
