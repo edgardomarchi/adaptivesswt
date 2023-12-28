@@ -52,15 +52,22 @@ class Configuration:
     int_psi: Optional[np.ndarray] = None
     int_step: Optional[float] = None
     c_psi: complex = 1
-    transform: Literal['sst', 'tsst', 'tfr', 'set'] = 'sst' # 'sst', 'tsst', 'tfr'
+    transform: Literal['sst', 'tsst', 'tfr', 'set'] = 'sst'
 
     def __post_init__(self):
+        self.update()
+        logger.info('Configuration created: %s\n', self)
+
+    def update(self):
+        """ Updates the secondary configuration parameters.
+
+        This method needs to be called when the primary configuration parameters are changed.
+        """
         self.wav = ContinuousWavelet(f'cmor{self.wbw}-{self.wcf}')
         self.wav.lower_bound, self.wav.upper_bound = self.wavelet_bounds
         self.int_psi, x = integrate_wavelet(self.wav)  # type: ignore # integrate wavelet always operates with a ContinuousWavelet object
         self.c_psi: complex = np.pi * np.conjugate(self.int_psi[np.argmin(np.abs(x))])  # type: ignore # Optional types will allways exist
 
-        logger.info('Configuration created: %s\n', self)
 
     def asdict(self):
         """ Returns the configuration as a dictionary.
