@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 import logging
 import queue
+import re
 import threading
 from typing import List, Tuple, Union
 
@@ -498,6 +499,7 @@ def main():
     # import matplotlib
     # matplotlib.use('Qt5Agg')
     plt.close('all')
+
 
     logging.basicConfig(
         filename='adaptivesswt.log',

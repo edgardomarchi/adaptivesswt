@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+import imp
 import logging
 from multiprocessing import cpu_count
 from typing import Optional, Tuple
@@ -17,6 +18,90 @@ from .utils.freq_utils import (
 from .utils.plot_utils import plot_cwt_filters
 
 logger = logging.getLogger(__name__)
+
+from . import __backend as backend
+
+if backend == 'opencl':
+    import pyopencl as cl
+    import pyopencl.array as cl_array
+
+    platforms = cl.get_platforms()
+
+    ctx = cl.Context(
+        dev_type=cl.device_type.ALL,
+        properties=[(cl.context_properties.PLATFORM, platforms[0])])
+
+    queue = cl.CommandQueue(ctx)
+
+    _freq_agregate_prg = cl.Program(ctx,
+        """
+        __kernel void agregate(
+            __global const double *deltaFreqs, __global const double *borderFreqs,
+            __global const double *aScale,  __global const double *wab, __global const double *tr_matr,
+            __global double *sst, __global int *width, __global int *height)
+        {
+            int wd = *width;
+            int hg = *height;
+            int r_gid = get_global_id(0);
+            int c_gid = get_global_id(1);
+            int idx = c_gid + wd*r_gid;
+            for(int w=0; w<hg; w++){
+                if ((wab[idx] >= borderFreqs[w]) & (wab[idx] < borderFreqs[w+1])){
+                    sst[wd*r_gid+w]+= (tr_matr[idx] * aScale[r_gid] / deltaFreqs[w]);
+                    //printf("%e, [%e, %e]\\n", wab[idx], borderFreqs[w], borderFreqs[w+1]);
+                }
+            }
+        }
+        """)
+
+    mf = cl.mem_flags
+
+    try:
+        _freq_agregate_prg.build()
+    except Exception:
+        print("Error:")
+        print(_freq_agregate_prg.get_build_info(ctx.devices[0], cl.program_build_info.LOG))
+        raise
+    freq_agregate_knl = _freq_agregate_prg.agregate  # Use this Kernel object for repeated calls
+
+    def _freq_agregate_cl(deltaFreqs: np.ndarray, borderFreqs: np.ndarray,
+                   aScale: np.ndarray, wab: np.ndarray, tr_matr: np.ndarray,
+                   sst: np.ndarray):
+        deltaFreqs_dev = cl_array.to_device(queue, deltaFreqs)
+        borderFreqs_dev = cl_array.to_device(queue, borderFreqs)
+        aScale_dev = cl_array.to_device(queue, aScale)
+        wab_dev = cl_array.to_device(queue, wab)
+        tr_matr_dev = cl_array.to_device(queue, tr_matr)
+        sst_dev = cl_array.to_device(queue, sst)
+
+        width_dev = cl.Buffer(
+            ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=np.int32(sst_dev.shape[1])
+            )
+        height_dev = cl.Buffer(
+            ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=np.int32(sst_dev.shape[0])
+        )
+        freq_agregate_knl(queue, sst.shape, None, deltaFreqs_dev.data, borderFreqs_dev.data,
+            aScale_dev.data, wab_dev.data, tr_matr_dev.data, sst_dev.data,
+            width_dev, height_dev)
+
+        queue.finish()
+        sst = sst_dev.get()
+
+    _freq_agregate = _freq_agregate_cl
+
+else:  #numba
+    @njit(parallel=True, fastmath=True)
+    def _freq_agregate_nb(deltaFreqs: np.ndarray, borderFreqs: np.ndarray,
+                       aScale: np.ndarray, wab: np.ndarray, tr_matr: np.ndarray,
+                       sst: np.ndarray):
+        for b in prange(sst.shape[1]):        # Time
+            for w in prange(sst.shape[0]):    # Frequency
+                components = np.logical_and(wab[:,b] > borderFreqs[w],
+                                            wab[:,b] <= borderFreqs[w+1])
+
+                sst[w,b] = (tr_matr[components,b] * aScale[components]).sum() / deltaFreqs[w]
+
+    _freq_agregate = _freq_agregate_nb
 
 def sswt(signal: np.ndarray,
          min_freq: float,
@@ -127,7 +212,7 @@ def get_freq_remapping(cwt: np.ndarray=np.array([[]]), threshold: float=0.1,
     w_ab = np.angle(np.divide(cwt_p, cwt, out=np.zeros_like(cwt),
                               where=abs(cwt)>threshold)) / (2 * np.pi * ts)
     # Last term is added in order to convert from normalized omega to frecuency in Hz
-
+    print(w_ab.dtype)
     return w_ab
 
 def get_time_remapping(cwt: np.ndarray=np.array([[]]), threshold: float=0.1,
@@ -232,17 +317,6 @@ def tf_synchrosqueeze(cwt_matr: np.ndarray, freqs: np.ndarray, ts: float,
     return tfr, (wab, tab)
 
 @njit(parallel=True, fastmath=True)
-def _freq_agregate(deltaFreqs: np.ndarray, borderFreqs: np.ndarray,
-                   aScale: np.ndarray, wab: np.ndarray, tr_matr: np.ndarray,
-                   sst: np.ndarray):
-    for b in prange(sst.shape[1]):        # Time
-        for w in prange(sst.shape[0]):    # Frequency
-            components = np.logical_and(wab[:,b] > borderFreqs[w],
-                                        wab[:,b] <= borderFreqs[w+1])
-
-            sst[w,b] = (tr_matr[components,b] * aScale[components]).sum() / deltaFreqs[w]
-
-@njit(parallel=True, fastmath=True)
 def _freq_extract(deltaFreqs: np.ndarray, borderFreqs: np.ndarray,
                   aScale: np.ndarray, wab: np.ndarray, tr_matr: np.ndarray,
                   sst: np.ndarray):
@@ -316,7 +390,12 @@ def main():
     logger = logging.getLogger(__name__)
     logger.setLevel(logging.DEBUG)
 
+    import matplotlib
     import matplotlib.pyplot as plt
+
+    font = {'family': 'normal', 'weight': 'normal', 'size': 14}
+    matplotlib.rc('font', **font)
+    plt.rcParams['text.usetex'] = True
 
     from .configuration import Configuration
     from .utils import signal_utils as generator
@@ -332,9 +411,9 @@ def main():
     # signal = generator.testSine(t, 0.2) + generator.testSine(t,1) + generator.testSine(t, 5) + generator.testSine(t,10)
     # f, signal = generator.testSig(t)
     # f, signal = generator.crossChrips(t, 2, 8, 2)
-    f, signal = generator.testChirp(t, 3, 6)
+    # f, signal = generator.testChirp(t, 3, 6)
     # _, signal = generator.quadraticChirp(t, 1, 30)
-    # f, signal = generator.dualQuadraticChirps(t, (8,6),(2,3))
+    f, signal = generator.dualQuadraticChirps(t, (8,5),(2,4))
     # signal = np.zeros_like(t)
     # signal[fs:2*fs]=1.0
 
@@ -343,7 +422,7 @@ def main():
 
     max_freq = 11
     min_freq = 0.1
-    num_freqs = 20
+    num_freqs = 64
 
     config = Configuration(
         min_freq=min_freq,
@@ -363,35 +442,87 @@ def main():
     scales, _, _, _ = calcScalesAndFreqs(ts, config.wcf, config.min_freq, config.max_freq, config.num_freqs)
 
     sst, cwt, freqs, wab, tail = sswt(signal, **config.asdict())
-    rentrCWT = renyi_entropy(cwt,2)
-    rentrSST = renyi_entropy(sst,2)
+    rentrCWT = renyi_entropy(cwt,3)
+    rentrSST = renyi_entropy(sst,3)
     print(f'Rènyi entropy of CWT = {rentrCWT}')
     print(f'Rènyi entropy of SST = {rentrSST}')
 
 
-    mainFig = plt.figure('Method comparison')
-    gs = mainFig.add_gridspec(2, 2)
+    mainFig = plt.figure('Comparación de métodos')
+    gs = mainFig.add_gridspec(1, 3)
     mainAxes  = gs.subplots(sharex='col', sharey='row')
     mainFig.set_tight_layout(True)
 
-    mainAxes[0,0].plot(t[:len(signal)], signal)
-    mainAxes[0,0].set_title('Signal')
+    #mainAxes[0,0].plot(t[:len(signal)], signal)
+    #mainAxes[0,0].set_title('Señal a analizar')
 
 
-    mainAxes[1,0].pcolormesh(t, freqs, np.abs(cwt), cmap='viridis', shading='gouraud')
-    mainAxes[1,0].set_title('Wavelet Transform')
-    mainAxes[1,1].pcolormesh(t, freqs, np.abs(sst), cmap='viridis', shading='gouraud')
-    mainAxes[1,1].set_title('Synchrosqueezing Transform')
+    mainAxes[1].pcolormesh(t, freqs, np.abs(cwt), cmap='viridis', shading='gouraud')
+    mainAxes[1].set_title('Wavelet Transform')
+    mainAxes[1].set_xlabel('t [s]', loc='right')
+    mainAxes[1].set_ylabel('f [Hz]', loc='top')
+    mainAxes[2].pcolormesh(t, freqs, np.abs(sst), cmap='viridis', shading='gouraud')
+    mainAxes[2].set_title('Synchrosqueezing Transform')
+    mainAxes[2].set_xlabel('t [s]', loc='right')
+    mainAxes[2].set_ylabel('f [Hz]', loc='top')
 
     signalR_cwt = reconstructCWT(cwt, wav, scales, freqs)
     signalR_cwt /= signalR_cwt.max()
     signalR_sst = reconstruct(sst, config.c_psi, freqs)
 
-    mainAxes[0, 1].plot(t, signal, label='Original', alpha=0.5)
-    mainAxes[0, 1].plot(t, signalR_cwt, label='CWT', alpha=0.65)
-    mainAxes[0, 1].plot(t, -1*signalR_sst, label='SST')
-    mainAxes[0, 1].legend()
-    mainAxes[0, 1].set_title('Reconstructed signal')
+    mainAxes[0].plot(t, f[0], label='Comp. 0')
+    mainAxes[0].plot(t, f[1], label='Comp. 1')
+    mainAxes[0].set_xlabel('t [s]', loc='right')
+    mainAxes[0].set_ylabel('f [Hz]', loc='top')
+    mainAxes[0].legend()
+    mainAxes[0].set_title('Frecuencias intstantáneas')
+
+    #### Transform size comparison ####
+
+    config.num_freqs = 16
+    sst16, _, freqs16, _, _ = sswt(signal, **config.asdict())
+    config.num_freqs = 32
+    sst32, _, freqs32, _, _ = sswt(signal, **config.asdict())
+    config.num_freqs = 64
+    sst64, _, freqs64, _, _ = sswt(signal, **config.asdict())
+    config.num_freqs = 128
+    sst128, _, freqs128, _, _ = sswt(signal, **config.asdict())
+
+    sizeFig = plt.figure('Comparación de K')
+    gsSize = sizeFig.add_gridspec(2, 2)
+    sizeAxes  = gsSize.subplots(sharex='col', sharey='row')
+    sizeFig.set_tight_layout(True)
+
+    sizeAxes[0, 0].pcolormesh(t, freqs16, np.abs(sst16), cmap='viridis', shading='gouraud')
+    sizeAxes[0, 0].set_title('K = 16')
+    sizeAxes[0, 0].set_xlabel('t [s]', loc='right')
+    sizeAxes[0, 0].set_ylabel('f [Hz]', loc='top')
+
+    sizeAxes[0, 1].pcolormesh(t, freqs32, np.abs(sst32), cmap='viridis', shading='gouraud')
+    sizeAxes[0, 1].set_title('K = 32')
+    sizeAxes[0, 1].set_xlabel('t [s]', loc='right')
+    sizeAxes[0, 1].set_ylabel('f [Hz]', loc='top')
+
+    sizeAxes[1, 0].pcolormesh(t, freqs64, np.abs(sst64), cmap='viridis', shading='gouraud')
+    sizeAxes[1, 0].set_title('K = 64')
+    sizeAxes[1, 0].set_xlabel('t [s]', loc='right')
+    sizeAxes[1, 0].set_ylabel('f [Hz]', loc='top')
+
+    sizeAxes[1, 1].pcolormesh(t, freqs128, np.abs(sst128), cmap='viridis', shading='gouraud')
+    sizeAxes[1, 1].set_title('K = 128')
+    sizeAxes[1, 1].set_xlabel('t [s]', loc='right')
+    sizeAxes[1, 1].set_ylabel('f [Hz]', loc='top')
+
+    rentrSST16 = renyi_entropy(sst16,3)
+    rentrSST32 = renyi_entropy(sst32,3)
+    rentrSST64 = renyi_entropy(sst64,3)
+    rentrSST128 = renyi_entropy(sst128,3)
+
+    print(f'Rènyi entropy of SST with K=16 : {rentrSST16}')
+    print(f'Rènyi entropy of SST with K=32 : {rentrSST32}')
+    print(f'Rènyi entropy of SST with K=64 : {rentrSST64}')
+    print(f'Rènyi entropy of SST with K=128 : {rentrSST128}')
+
 
     #### Transforms comparison ####
     tsstFig, tsstAx = plt.subplots(1,5)
@@ -436,4 +567,6 @@ def main():
 
 
 if __name__=='__main__':
+    from . import setBackend
+    setBackend('opencl')
     main()

@@ -27,6 +27,7 @@ scipy = "*"
 matplotlib = { version = "*", optional = true }
 pandas = { version = "*", optional = true }
 SoundFile = { version = "^0.10.3.post1", optional = true }
+pyopencl = "^2024.1"
 
 [tool.poetry.extras]
 plot = ["matplotlib"]
