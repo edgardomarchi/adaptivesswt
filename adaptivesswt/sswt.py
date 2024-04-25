@@ -9,6 +9,8 @@ import numpy as np
 import pywt
 from numba import njit, prange, set_num_threads
 
+import adaptivesswt
+
 from .utils.freq_utils import (
     calcFilterLength,
     calcScalesAndFreqs,
@@ -35,20 +37,25 @@ if backend == 'opencl':
 
     _freq_agregate_prg = cl.Program(ctx,
         """
+        #define PYOPENCL_DEFINE_CDOUBLE
+        #include <pyopencl-complex.h>
         __kernel void agregate(
             __global const double *deltaFreqs, __global const double *borderFreqs,
-            __global const double *aScale,  __global const double *wab, __global const double *tr_matr,
-            __global double *sst, __global int *width, __global int *height)
+            __global const double *aScale,  __global const double *wab, __global const cdouble_t *tr_matr,
+            __global cdouble_t *sst, __global int *width, __global int *height)
         {
             int wd = *width;
             int hg = *height;
             int r_gid = get_global_id(0);
             int c_gid = get_global_id(1);
             int idx = c_gid + wd*r_gid;
+            /*
+            if (wab[idx] >= borderFreqs[r_gid] && wab[idx] < borderFreqs[r_gid+1]){
+                sst[idx] = tr_matr[idx];
+            }*/
             for(int w=0; w<hg; w++){
-                if ((wab[idx] >= borderFreqs[w]) & (wab[idx] < borderFreqs[w+1])){
-                    sst[wd*r_gid+w]+= (tr_matr[idx] * aScale[r_gid] / deltaFreqs[w]);
-                    //printf("%e, [%e, %e]\\n", wab[idx], borderFreqs[w], borderFreqs[w+1]);
+                if (wab[c_gid+w*wd] >= borderFreqs[r_gid] && wab[c_gid+w*wd] < borderFreqs[r_gid+1]){
+                    sst[idx] = cdouble_add(sst[idx], cdouble_mulr(tr_matr[c_gid+w*wd] , aScale[w] / deltaFreqs[r_gid]));
                 }
             }
         }
@@ -86,6 +93,7 @@ if backend == 'opencl':
 
         queue.finish()
         sst = sst_dev.get()
+        return sst
 
     _freq_agregate = _freq_agregate_cl
 
@@ -100,6 +108,7 @@ else:  #numba
                                             wab[:,b] <= borderFreqs[w+1])
 
                 sst[w,b] = (tr_matr[components,b] * aScale[components]).sum() / deltaFreqs[w]
+        return sst
 
     _freq_agregate = _freq_agregate_nb
 
@@ -212,7 +221,6 @@ def get_freq_remapping(cwt: np.ndarray=np.array([[]]), threshold: float=0.1,
     w_ab = np.angle(np.divide(cwt_p, cwt, out=np.zeros_like(cwt),
                               where=abs(cwt)>threshold)) / (2 * np.pi * ts)
     # Last term is added in order to convert from normalized omega to frecuency in Hz
-    print(w_ab.dtype)
     return w_ab
 
 def get_time_remapping(cwt: np.ndarray=np.array([[]]), threshold: float=0.1,
@@ -261,7 +269,7 @@ def freq_synchrosqueeze(cwt_matr: np.ndarray, freqs: np.ndarray, ts: float, scal
     # Sychrosqueezing parallel process
     ####################################
         case _:
-            _freq_agregate(deltaFreqs, borderFreqs, aScale, wab, cwt_matr, sst)
+            sst = _freq_agregate(deltaFreqs, borderFreqs, aScale, wab, cwt_matr, sst)
 
     logger.info('Synchrosqueezing Done!')
 
@@ -557,10 +565,10 @@ def main():
 
     #### Timing ####
     import timeit
-    passes = 2
+    passes = 10
     config.pad = 0
     time = timeit.timeit("lambda: sswt(signal, **config.asdict())", globals=globals(), number=passes)
-    print(f'Excecution time for {passes} passes and {config.num_processes} processes = {time}s')
+    print(f'Excecution time for {passes} passes and {adaptivesswt.getBackend()} = {time}s')
     print(f'Execution time per signal second = {time / stopTime / passes} s/s')
 
     plt.show()
