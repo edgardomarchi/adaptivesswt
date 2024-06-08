@@ -159,16 +159,17 @@ def get_mse_batched(
                 )
             else:
                 if_comp_ax.plot(t[: len(signal)], freq, '--', color='green')
-        if_comp_ax.set_title('(a) Instantaneous Frequencies')
-        if_comp_ax.set_ylabel('frequency [Hz]', loc='top')
+        # if_comp_ax.set_title('Instantaneous Frequencies')
+        if_comp_ax.set_title('Frecuencias instantáneas')
+        if_comp_ax.set_ylabel('f [Hz]', loc='top')
         if_comp_ax.legend()
 
         mse_comp_ax.plot(t[: len(mse_sst)], mse_sst, ':', color='blue', label='SST')
         mse_comp_ax.plot(
             t[: len(mse_asst_batch)], mse_asst_batch, '-', color='red', label='B-ASST'
         )
-        mse_comp_ax.set_title('(b) MSE(t)')
-        mse_comp_ax.set_xlabel('Time [s]', loc='right')
+        mse_comp_ax.set_title('MSE(t)')
+        mse_comp_ax.set_xlabel('t [s]', loc='right')
         mse_comp_ax.set_ylabel('MSE', loc='top')
 
         mse_comp_ax.legend()
@@ -191,9 +192,8 @@ def main():
     matplotlib.rc('font', **font)
     plt.rcParams['text.usetex'] = True
 
-    # Uncomment if you have pyqt installed:
-    # import matplotlib
-    # matplotlib.use('Qt5Agg')
+    # Uncomment next line if you have pyqt installed:
+    matplotlib.use('QtAgg')
 
     from adaptivesswt.utils import signal_utils as generator
 
@@ -279,8 +279,10 @@ def main():
     # Translate method string from printable to parameter:
     methd = {'thrs': 'threshold', 'prop': 'proportional'}
 
-    sin_fig = plt.figure('Sine', dpi=300, figsize=(16/2.54, 6/2.54))
-    sin_mse_fig = plt.figure('MSE - Sine', dpi=300)
+    sin_fig_itl = plt.figure('Sine', dpi=300, figsize=(16/2.54, 6/2.54))
+    sin_mse_fig_itl = plt.figure('MSE - Dual Sine (ITL)', dpi=300)
+    sin_fig_otl = plt.figure('Sine', dpi=300, figsize=(16/2.54, 6/2.54))
+    sin_mse_fig_otl = plt.figure('MSE - Dual Sine (OTL)', dpi=300)
     dqc_fig = plt.figure('Dual Quadratic Chirp', dpi=300, figsize=(16/2.54, 6/2.54))
     dqc_mse_fig = plt.figure('MSE - Dual Quadratic Chirp', dpi=300)
     lc_fig = plt.figure('Linear Chirp', dpi=300, figsize=(16/2.54, 6/2.54))
@@ -297,9 +299,13 @@ def main():
             if signal_name == 'Dual Quadratic Chirp' and key == '-OTL-thrs':
                 figure_to_plot = dqc_fig
                 if_mse_figure_to_plot = dqc_mse_fig
-            if signal_name == 'Sine' and key == '-OTL-prop':
-                figure_to_plot = sin_fig
-                if_mse_figure_to_plot = sin_mse_fig
+            if signal_name == 'Dual sine' and key == '-OTL-prop':
+                figure_to_plot = sin_fig_otl
+                if_mse_figure_to_plot = sin_mse_fig_otl
+            if signal_name == 'Dual sine' and key == '-ITL-prop':
+                figure_to_plot = sin_fig_itl
+                if_mse_figure_to_plot = sin_mse_fig_itl
+
             if signal_name == 'Linear Chirp' and key == '-ITL-prop':
                 figure_to_plot = lc_fig
                 if_mse_figure_to_plot = lc_mse_fig
@@ -395,13 +401,13 @@ def main():
         gs[0, 0],
     )
     asstAx.set_title('ASST')
-    asstAx.set_xlabel('iterations', loc='right')
+    asstAx.set_xlabel('iter.', loc='right')
     asstAx.set_ylabel('MSE', loc='top')
     bAsstAx = plt.subplot(
         gs[0, 1],
     )
     bAsstAx.set_title('B-ASST')
-    bAsstAx.set_xlabel('iterations', loc='right')
+    bAsstAx.set_xlabel('iter.', loc='right')
     bAsstAx.set_ylabel('MSE', loc='top')
 
     for key, mse in mseASSTIter.items():
