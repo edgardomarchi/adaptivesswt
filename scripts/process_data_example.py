@@ -11,8 +11,8 @@ Data URL: https://figshare.com/ndownloader/files/17357702
 
 Usage:
 
-$ python process_data_example.py -i dataset/datasets/measurement_data_person11/PCG_front_radar_front\
-/PCG_2L_radar_4L/apnea/inhaled/DATASET_2017-02-16_10-56-05_Person\ 11.mat
+$ python process_data_example.py -i dataset/datasets/measurement_data_person11/PCG_front_radar_front\\
+/PCG_2L_radar_4L/apnea/inhaled/DATASET_2017-02-16_10-56-05_Person\\ 11.mat
 
 """
 
@@ -28,20 +28,20 @@ import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 
+from adaptivesswt.adaptivesswt import adaptive_sswt
 from adaptivesswt.configuration import Configuration
-from adaptivesswt.sswt import reconstruct
+from adaptivesswt.sswt import reconstruct, reconstruct_tsst
 from adaptivesswt.utils.freq_utils import calcScalesAndFreqs
 from adaptivesswt.utils.import_utils import import_mat, raw2Data
 from adaptivesswt.utils.process_data import analyze, extractPhase, intDecimate
 
 # Plotting parameters
-font = {'family': 'normal', 'weight': 'normal', 'size': 8}
+font = {'family': 'normal', 'weight': 'normal', 'size': 12}
 
 matplotlib.rc('font', **font)
 plt.rcParams['text.usetex'] = True
 plt.rcParams['lines.linewidth'] = 1
-dpi = 300
-
+plt.rcParams['figure.dpi'] = 140
 
 logging.basicConfig(format='%(levelname)s - %(asctime)s - %(name)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -100,7 +100,7 @@ configPCG = Configuration(
     wbw=8,
     wavelet_bounds=(-8, 8),
     threshold=abs(signalPCG).max() / 1e6,
-    transform='tsst',
+    transform='sst',
 )
 
 pcgIters = 2
@@ -147,10 +147,14 @@ signalPCGBSynth = np.concatenate(
     (signalPCGBSynthList[0], signalPCGBSynth, signalPCGBSynthList[-1])
 )
 
+configPCG.transform = 'tsst'
+tsstPCG, freqsTsstPCG,_,_ = adaptive_sswt(signalPCG, pcgIters, pcgMethod, pcgThreshold, pcgItl, **configPCG.asdict())
+signalPCGTsstSynth = reconstruct_tsst(tsstPCG, configPCG.c_psi, freqsTsstPCG)
+
 start_t, stop_t = 24.0, 29.5
 plot_time = np.logical_and(time > start_t, time < stop_t)
 
-fig, ax = plt.subplots(4, 1, sharex=True, figsize=(17 / 2.54, 12 / 2.54))
+fig, ax = plt.subplots(5, 1, sharex=True, figsize=(17 / 2.54, 15 / 2.54))
 ax[0].plot(
     time[plot_time],
     -1 * data.ecg[plot_time] / abs(data.ecg[plot_time]).max(),
@@ -181,30 +185,38 @@ ax[3].plot(
     'r',
     label='B-ASST - Radar',
 )
+ax[4].plot(
+    time[plot_time][:: int(data.fs / pcgFs)],
+    signalPCGTsstSynth[plot_time[:: int(data.fs / pcgFs)]]
+    / abs(signalPCGTsstSynth[plot_time[:: int(data.fs / pcgFs)]]).max(),
+    'y',
+    label='TSST - Radar',
+)
 for axis in ax:
     axis.legend()
 # fig.suptitle('PCG')
-ax[0].set_ylabel('amplitude (normalized)', loc='top')
-ax[3].set_xlabel('time [s]', loc='right')
+ax[0].set_ylabel('amplitud (normalizada)', loc='top')
+ax[4].set_xlabel('t [s]', loc='right')
 fig.set_tight_layout(True)
-fig.savefig(str(parent_dir / 'fig' / 'fig_pcg.pdf'), dpi=dpi)
+fig.savefig(str(parent_dir / 'fig' / 'fig_pcg.pdf'))
 
 
 #### Pulse
 logger.info('Analizing Pulse frequencies...')
 configPulse = Configuration(
-    min_freq=1,
+    min_freq=0.75,
     max_freq=3,
-    num_freqs=16,
+    num_freqs=12,
     ts=1 / pulseFs,
     wcf=1,
     wbw=10,
     wavelet_bounds=(-8, 8),
     threshold=abs(signalPulse).max() / 1e5,
-    num_processes=4,
+    #num_processes=4,
+    transform='sst',
 )
 
-pulseIters = 1
+pulseIters = 2
 pulseMethod = 'proportional'
 pulseThreshold = abs(signalPulse).max() / 10000
 pulseItl = True
@@ -237,7 +249,7 @@ if plotPulse:
     # pulseFig.suptitle('Pulse')  # type: ignore
     pulseFig.savefig(  # type: ignore
         str(parent_dir / 'fig' / 'fig_pulse_method_comparison.pdf'),
-        dpi=dpi,
+        # dpi=dpi,
         # bbox_inches='tight'
     )
 
@@ -262,13 +274,13 @@ signalPulseBSynth = np.array(signalPulseBSynthList[1:-1]).flatten()
 signalPulseBSynth = np.concatenate(
     (signalPulseBSynthList[0], signalPulseBSynth, signalPulseBSynthList[-1])
 )
-start_t, stop_t = 32.0, 45.0
+start_t, stop_t = 26.0, 32.0
 plot_time = np.logical_and(time > start_t, time < stop_t)
-fig, ax = plt.subplots(1, 1, dpi=dpi, figsize=(17 / 2.54, 6 / 2.54))
+fig, ax = plt.subplots(1, 1, figsize=(22 / 2.54, 9 / 2.54))
 ax.plot(
     time[plot_time],
     -1 * data.ecg[plot_time] / abs(data.ecg[plot_time]).max(),
-    label='ECG (raw)',
+    label='ECG',
 )
 ax.plot(
     time[plot_time][:: int(data.fs / pulseFs)],
@@ -289,11 +301,11 @@ ax.plot(
     label='B-ASST - Radar',
 )
 ax.legend()
-ax.set_xlabel('time [s]', loc='right')
-ax.set_ylabel('amplitude (normalized)', loc='top')
+ax.set_xlabel('t [s]', loc='right')
+ax.set_ylabel('Amplitud (normalizada)', loc='top')
 # fig.suptitle('Pulse')
 fig.set_tight_layout(True)
-fig.savefig(str(parent_dir / 'fig' / 'fig_pulse.pdf'), dpi=dpi)
+fig.savefig(str(parent_dir / 'fig' / 'fig_pulse.pdf'))  # , dpi=dpi)
 
 #### Respiration:
 logger.info('Analizing Respiration frequencies...')
@@ -358,29 +370,27 @@ signalRespBSynth = np.concatenate(
     (signalRespBSynthList[0], signalRespBSynth, signalRespBSynthList[-1])
 )
 
-fig, ax = plt.subplots(2, 1, dpi=dpi, figsize=(14 / 2.54, 10 / 2.54), sharex=True)
+fig, ax = plt.subplots(2, 1, figsize=(17 / 2.54, 12 / 2.54), sharex=True)
 ap_start, ap_stop = 25.5, 47
 ax[0].plot(
-    time, -1 * data.resp / data.resp.max(), label='Thermal sensor (raw)'
+    time, -1 * data.resp / data.resp.max(), label='Sensor térmico'
 )  # Gets inverted due thermal method
 ax[0].axvline(ap_start, color='r')
 ax[0].axvline(ap_stop, color='r')
 ax[0].legend(loc=(0.5, 0.8))
-ax[0].set_title('Respiration signal')
-ax[0].set_ylabel('amplitude', loc='top')
-ax[1].plot(time[:: int(data.fs / respFs)], signalResp, label='Radar')
+ax[0].set_title('Señal respiratoria')
+ax[0].set_ylabel('amplitud', loc='top')
+#ax[1].plot(time[:: int(data.fs / respFs)], signalResp, label='Radar')
 ax[1].plot(time[:: int(data.fs / respFs)], sstSignalRespSynth, label='SST')
 ax[1].plot(time[:: int(data.fs / respFs)], signalRespSynth, label='ASST')
 ax[1].plot(time[:: int(data.fs / respFs)], signalRespBSynth, label='B-ASST')
 ax[1].axvline(ap_start, color='r')
 ax[1].axvline(ap_stop, color='r')
 ax[1].legend(loc=(0.65, 0.01))
-ax[1].set_xlabel('time [s]', loc='right')
-ax[1].set_title('Analyzed UWB Radar signal')
+ax[1].set_xlabel('t [s]', loc='right')
+ax[1].set_title('Radar UWB')
 fig.set_tight_layout(True)
 fig.savefig(
-    str(parent_dir / 'fig' / 'fig_respiration.pdf'),
-    dpi=dpi,
-)
+    str(parent_dir / 'fig' / 'fig_respiration.pdf'))  #, dpi=dpi)
 
 plt.show()

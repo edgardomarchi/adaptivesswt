@@ -126,12 +126,14 @@ def analyze(signal: np.ndarray, config: Configuration,
     print(f'Blen = {bLen}, Batchs = {len(batchs)}')
     fig = None
     if plot:
-        fig = plt.figure(figsize=(17/2.54,6/2.54), dpi=300)
+        fig = plt.figure(figsize=(17/2.54,6/2.54))  #, dpi=300)
         gs = fig.add_gridspec(1, 3)
         stAx = plt.subplot(gs[0, 0],)
         asAx = plt.subplot(gs[0, 1],)
         baAx = plt.subplot(gs[0,2],)
-        stAx.get_shared_y_axes().join(stAx, asAx, baAx)
+        stAx.sharey(asAx)
+        asAx.sharey(baAx)
+        #stAx.get_shared_y_axes().join(stAx, asAx, baAx)
         plot_tf_repr(sst,time, freqs, stAx)
         stAx.set_title('SST')
         plot_tf_repr(asst, time, afreqs, asAx)

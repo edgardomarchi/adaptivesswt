@@ -33,7 +33,7 @@ def plot_cwt_filters(
     width = wav.upper_bound - wav.lower_bound
     max_len = int(np.max(scales) * width + 1)
 
-    _, ax = plt.subplots(1, dpi=300)
+    _, ax = plt.subplots(1)
     ax.grid(True, axis='x')
     ax.set_xlabel('[Hz]', loc='right')
     ax.set_title('Signal and wavelets normalized spectra')
@@ -82,7 +82,7 @@ def plot_tf_repr(tfr: np.ndarray, t: np.ndarray, f: np.ndarray, ax: Axes):
         Axis to plot within.
     """
     ax.pcolormesh(t, f, np.abs(tfr), cmap='plasma', shading='gouraud')
-    ax.set_xlabel('time [s]', loc='right')
+    ax.set_xlabel('t [s]', loc='right')
     ax.set_ylabel('f [Hz]',loc='top', rotation=0, labelpad=-15)
 
 def plot_batched_tf_repr(
@@ -125,4 +125,4 @@ def plot_batched_tf_repr(
         if i == int((num_batchs - 1) // 2):
             new_ax.set_title('B-ASST')
         elif i==(len(batchs)-1):
-            new_ax.set_xlabel('time [s]', loc='right')
+            new_ax.set_xlabel('t [s]', loc='right')
