@@ -32,6 +32,6 @@ if __name__ == '__main__':
     # Logging configuration
     logging.basicConfig(filename='sswt_test.log', filemode='w',
                         format='%(levelname)s - %(asctime)s - %(name)s:\n %(message)s')
-    logger = logging.getLogger(__name__)
+    logger = logging.getLogger('')
     logger.setLevel(logging.DEBUG)
     cli()

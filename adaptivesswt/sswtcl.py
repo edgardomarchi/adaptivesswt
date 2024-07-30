@@ -133,7 +133,6 @@ def _freq_agregate_cl(deltaFreqs: np.ndarray, borderFreqs: np.ndarray,
 
     queue.finish()
     sst = sst_dev.get()
-    print('OpenCL!')
     return sst
 
 

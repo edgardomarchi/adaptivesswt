@@ -1,9 +1,11 @@
 import timeit
 from multiprocessing import cpu_count
 
+import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 
+import adaptivesswt
 from adaptivesswt import adaptive_sswt
 from adaptivesswt.configuration import Configuration
 from adaptivesswt.sswt import sswt
@@ -68,12 +70,12 @@ def ckeck_complexity_distribution(
         wcf=1,
         wbw=2,
         wavelet_bounds=(-8, 8),
-        threshold=1 / 10,
+        threshold=(1/10),
         plot_filters=False,
     )
-    thrsh = 1 / 5
+    thrsh = (1/5)
 
-    passes = 4
+    passes = 10
 
     for i, stopSignalTime in enumerate(maxSignalTimes):
         stopTime = stopSignalTime
@@ -102,12 +104,9 @@ def ckeck_complexity_distribution(
 
 
 def main():
-    import matplotlib
 
     plt.rcParams['text.usetex'] = True
-
     font = {'family': 'normal', 'weight': 'normal', 'size': 10}
-
     matplotlib.rc('font', **font)
 
     # Uncomment if you have pyqt installed:
@@ -140,22 +139,27 @@ def main():
 
     else:
         s_len, a_times, sst_times, asst_times = ckeck_complexity_distribution(
-            50, maxIters=2
+            maxSignalTime=120,
+            n_steps=20,
+            maxIters=2
         )
-        fig, ax = plt.subplots(1, dpi=300)
+        fig, ax = plt.subplots(1)
         ax.plot(s_len, a_times, 'b', label='Single Adaptive stage')
         ax.plot(s_len, sst_times, 'b:', label='Single SST')
         ax.plot(s_len, asst_times, 'b--', label='Full ASST')
 
         s_len, a_times, sst_times, asst_times = ckeck_complexity_distribution(
-            50, maxIters=4
+            maxSignalTime=120,
+            n_steps=20,
+            maxIters=4
         )
         ax.plot(s_len, a_times, 'r', label='Single Adaptive stage')
         ax.plot(s_len, sst_times, 'r:', label='Single SST')
         ax.plot(s_len, asst_times, 'r--', label='Full ASST')
 
         ax.set_xlabel('Signal duration [s]')
-        ax.set_ylabel('Run time [s]')
+        ax.set_ylabel('Run-time [s]')
+        ax.set_title(f'Backend: {adaptivesswt.getBackend()}')
 
         ax.legend()
 
