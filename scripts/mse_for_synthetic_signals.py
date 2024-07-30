@@ -225,7 +225,7 @@ def main():
         wcf=1,
         wbw=30,
         wavelet_bounds=(-8, 8),
-        threshold=1/10,
+        threshold=1/4,
     )
 
     ## Configuration for batched version:
@@ -359,6 +359,7 @@ def main():
     ########################
     iters = np.linspace(0, 4, 4, endpoint=False, dtype=int)
 
+    ## Dual Quadratic Chirp
     f, signal = signals['Dual Quadratic Chirp']
 
     mseASSTIter = {
@@ -395,7 +396,72 @@ def main():
         print(f'MSE: {mseASSTIter[key]}')
         print('----------')
 
-    mseIterFig = plt.figure('MSE vs. Maximum Iterations', dpi=300)
+    mseIterFigDQC = plt.figure('MSE vs. Maximum Iterations (Dual Cuadratic Chirp)', dpi=300)
+    gsDQC = mseIterFigDQC.add_gridspec(1, 2)
+    asstAxDQC = plt.subplot(
+        gsDQC[0, 0],
+    )
+    asstAxDQC.set_title('ASST')
+    asstAxDQC.set_xlabel('iter.', loc='right')
+    asstAxDQC.set_ylabel('MSE', loc='top')
+    bAsstAxDQC = plt.subplot(
+        gsDQC[0, 1],
+    )
+    bAsstAxDQC.set_title('B-ASST')
+    bAsstAxDQC.set_xlabel('iter.', loc='right')
+    bAsstAxDQC.set_ylabel('MSE', loc='top')
+
+    for key, mse in mseASSTIter.items():
+        asstAxDQC.plot(iters, mse, label=key)
+
+    for key, mse in mseBASSTIter.items():
+        bAsstAxDQC.plot(iters, mse, label=key)
+
+    asstAxDQC.set_ylim(0, 1.5)
+    bAsstAxDQC.set_ylim(0, 1.5)
+
+    asstAxDQC.legend()
+    bAsstAxDQC.legend()
+    mseIterFigDQC.savefig(str(parentDir / 'docs/img/mse_vs_iters_dqc.pdf'))
+
+    ## Chirp
+    f, signal = signals['Linear Chirp']
+
+    mseASSTIter = {
+        'ITL/proportional': np.zeros_like(iters, dtype=float),
+        'ITL/threshold': np.zeros_like(iters, dtype=float),
+        'OTL/proportional': np.zeros_like(iters, dtype=float),
+        'OTL/threshold': np.zeros_like(iters, dtype=float),
+    }
+
+    mseBASSTIter = {
+        'ITL/proportional': np.zeros_like(iters, dtype=float),
+        'ITL/threshold': np.zeros_like(iters, dtype=float),
+        'OTL/proportional': np.zeros_like(iters, dtype=float),
+        'OTL/threshold': np.zeros_like(iters, dtype=float),
+    }
+
+    for key, mseASST in mseASSTIter.items():
+        for bMaxIter in iters:
+            print(f'Analizing {key}, iter : {bMaxIter}')
+            mse = get_mse_batched(
+                signal,
+                t,
+                f,
+                tr,
+                config,
+                bLen=bLen,
+                bMaxIters=bMaxIter,
+                method=key.split('/')[1],
+                threshold=0.1,
+                itl=(True if key.split('/', maxsplit=1)[0] == 'ITL' else False),
+            )
+            mseASST[bMaxIter] = mse[-3]
+            mseBASSTIter[key][bMaxIter] = mse[-2]
+        print(f'MSE LC: {mseASSTIter[key]}')
+        print('----------')
+
+    mseIterFig = plt.figure('MSE vs. Maximum Iterations (Linear Chirp)', dpi=300)
     gs = mseIterFig.add_gridspec(1, 2)
     asstAx = plt.subplot(
         gs[0, 0],
@@ -416,12 +482,13 @@ def main():
     for key, mse in mseBASSTIter.items():
         bAsstAx.plot(iters, mse, label=key)
 
-    asstAx.set_ylim(0, 1.5)
-    bAsstAx.set_ylim(0, 1.5)
+#    asstAx.set_ylim(0, 1.5)
+ #   bAsstAx.set_ylim(0, 1.5)
 
     asstAx.legend()
     bAsstAx.legend()
-    mseIterFig.savefig(str(parentDir / 'docs/img/mse_vs_iters.pdf'))
+    mseIterFig.savefig(str(parentDir / 'docs/img/mse_vs_iters_lc.pdf'))
+
 
     #################
     ## MSE vs SNR: ##
