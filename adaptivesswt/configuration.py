@@ -11,7 +11,7 @@ from pywt import (
 )
 from pywt import integrate_wavelet
 
-logger = logging.getLogger()
+logger = logging.getLogger(__name__)
 
 
 @dataclass(init=True)
@@ -56,7 +56,7 @@ class Configuration:
 
     def __post_init__(self):
         self.update()
-        logger.info('Configuration created: %s\n', self)
+        logger.debug('Configuration created: %s\n', self)
 
     def update(self):
         """ Updates the secondary configuration parameters.
@@ -64,7 +64,7 @@ class Configuration:
         This method needs to be called when the primary configuration parameters are changed.
         """
         self.wav = ContinuousWavelet(f'cmor{self.wbw}-{self.wcf}')
-        self.wav.lower_bound, self.wav.upper_bound = self.wavelet_bounds
+        self.wav.lower_bound, self.wav.upper_bound = self.wavelet_bounds   # type: ignore # Pylance seems to fail finding attributes within pywavelets
         self.int_psi, x = integrate_wavelet(self.wav)  # type: ignore # integrate wavelet always operates with a ContinuousWavelet object
         self.c_psi: complex = np.pi * np.conjugate(self.int_psi[np.argmin(np.abs(x))])  # type: ignore # Optional types will allways exist
 

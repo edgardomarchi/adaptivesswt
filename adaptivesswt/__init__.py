@@ -1,4 +1,3 @@
-import argparse
 import json
 import logging
 import os
@@ -9,41 +8,77 @@ logger = logging.getLogger(__name__)
 
 # Init config:
 __backendConfigFileName = 'backend.json'
-__backendConfigFilePath = os.path.join(os.path.dirname(__file__), __backendConfigFileName)
+__backendConfigFilePath = os.path.join(os.path.dirname(__file__),
+                                       __backendConfigFileName)
 
-__defaultBackendConfig = {
+# Load config:
+__backendConfig:dict = {
     'backend': 'numba',
     'device_id': 0
-}
-
-__backendConfig = {}
+}  # Default values
 try:
-    with open(__backendConfigFilePath, 'r') as plFile:
-        __backendConfig= json.load(plFile)
+    with open(__backendConfigFilePath, 'r', encoding='utf-8') as f:
+        __backendConfig = json.load(f)
 except json.JSONDecodeError as e:
-    __backendConfig = __defaultBackendConfig
     logger.warning('No valid json format! - Exception: %s', e)
 except IOError:
-    __backendConfig = __defaultBackendConfig
     logger.warning('No backend found!')
 
 logger.info('Using %s backend with device_id %d',
             __backendConfig['backend'], __backendConfig['device_id'])
 
-def setBackend(backend: Literal['numba','opencl','multiprocessing']):
+############################
+# Configuration functions: #
+############################
+def __setBackend(backend: Literal['numba','opencl','multiprocessing']):
+    """Set the backend to use for computing
+
+    It can only be set through command line arguments and its persistent.
+
+    Parameters
+    ----------
+    backend : Literal["numba","opencl","multiprocessing"]
+        The backend to use for computing. Default is "numba".
+    """
     __backendConfig['backend'] = backend
     __saveBackendConfig()
 
-def setDeviceId(device_id: int):
+def __setDeviceId(device_id: int):
+    """Set the device to use for computing based on its id
+
+    Parameters
+    ----------
+    device_id : int
+        Device id to use with the selected backend
+    """
     __backendConfig['device_id'] = device_id
     __saveBackendConfig()
 
 def getBackend() -> str:
-    return __backendConfig['backend']
+    """Return the current backend used for computing
+
+    Returns
+    -------
+    str
+        Name of the backend used for computing
+    """
+    return __backendConfig.get('backend', 'numba')  #type: ignore #since it is a string
+
+def getDeviceId() -> int:
+    """Return the configured device id from current backend
+
+    Returns
+    -------
+    int
+        Device id to use with the selected backend
+    """
+    return __backendConfig.get('device_id', 0)  #type: ignore #since it is an int
 
 def __saveBackendConfig():
-    with open(__backendConfigFilePath, 'w') as plFile:
-        json.dump(__backendConfig, plFile)
+    """Saves the current backend configuration
+    """
+    with open(__backendConfigFilePath, 'w', encoding='utf-8') as f:
+        json.dump(__backendConfig, f)
 
 
 from .adaptivesswt import (
@@ -53,28 +88,3 @@ from .adaptivesswt import (
 )
 from .configuration import Configuration
 from .sswt import sswt
-
-
-def main():
-    parser = argparse.ArgumentParser(description='Configuration for Adaptive SSWT')
-
-    parser.add_argument('-b', '--backend', type=str, choices=['numba','opencl','multiprocessing'], default='numba',
-                        help='Backend to use: numba, opencl, multiprocessing')
-    parser.add_argument('-d', '--device_id', type=int, default=0,
-                        help='Device id to use with computing backend')
-
-    parser.add_argument('-i', '--info', help='Show current configuration', action='store_true')
-
-    args = parser.parse_args()
-    if args.info:
-        print('Current configuration:')
-        print(f'Backend: {getBackend()}')
-        print(f'Device id: {__backendConfig["device_id"]}')
-        return
-
-    setBackend(args.backend)
-    setDeviceId(args.device_id)
-
-
-if __name__ == '__main__':
-    main()

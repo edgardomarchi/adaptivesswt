@@ -69,7 +69,7 @@ bump2version = "*"
 cookiecutter = "*"
 
 [tool.poetry.scripts]
-adaptivesswt = "adaptivesswt:main"
+adaptivesswt = "adaptivesswt.cli:cli"
 
 test_sst = { callable = "adaptivesswt.sswt:main", extras = ["plot"] }
 test_asst = { callable = "adaptivesswt.adaptivesswt:main", extras = ["plot"] }

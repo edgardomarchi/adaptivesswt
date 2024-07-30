@@ -2,13 +2,13 @@
 
 [[package]]
 name = "alabaster"
-version = "0.7.16"
+version = "1.0.0"
 description = "A light, configurable Sphinx theme"
 optional = false
-python-versions = ">=3.9"
+python-versions = ">=3.10"
 files = [
-    {file = "alabaster-0.7.16-py3-none-any.whl", hash = "sha256:b46733c07dce03ae4e150330b975c75737fa60f0a7c591b6c8bf4928a28e2c92"},
-    {file = "alabaster-0.7.16.tar.gz", hash = "sha256:75a8b99c28a5dad50dd7f8ccdd447a121ddb3892da9e53d1ca5cca3106d58d65"},
+    {file = "alabaster-1.0.0-py3-none-any.whl", hash = "sha256:fc6786402dc3fcb2de3cabd5fe455a2db534b371124f1f21de8731783dec828b"},
+    {file = "alabaster-1.0.0.tar.gz", hash = "sha256:c00dca57bca26fa62a6d7d0a9fcce65f3e026e9bfe33e9c538fd3fbb2144fd9e"},
 ]
 
 [[package]]
@@ -1605,13 +1605,13 @@ dev = ["pre-commit", "tox"]
 
 [[package]]
 name = "pre-commit"
-version = "3.7.1"
+version = "3.8.0"
 description = "A framework for managing and maintaining multi-language pre-commit hooks."
 optional = false
 python-versions = ">=3.9"
 files = [
-    {file = "pre_commit-3.7.1-py2.py3-none-any.whl", hash = "sha256:fae36fd1d7ad7d6a5a1c0b0d5adb2ed1a3bda5a21bf6c3e5372073d7a11cd4c5"},
-    {file = "pre_commit-3.7.1.tar.gz", hash = "sha256:8ca3ad567bc78a4972a3f1a477e94a79d4597e8140a6e0b651c5e33899c3654a"},
+    {file = "pre_commit-3.8.0-py2.py3-none-any.whl", hash = "sha256:9a90a53bf82fdd8778d58085faf8d83df56e40dfe18f45b19446e26bf1b3a63f"},
+    {file = "pre_commit-3.8.0.tar.gz", hash = "sha256:8bb6494d4a20423842e198980c9ecf9f96607a07ea29549e180eef9ae80fe7af"},
 ]
 
 [package.dependencies]
@@ -1942,22 +1942,22 @@ setuptools = "*"
 
 [[package]]
 name = "pytools"
-version = "2024.1.10"
+version = "2024.1.11"
 description = "A collection of tools for Python"
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "pytools-2024.1.10-py3-none-any.whl", hash = "sha256:9cabb71038048291400e244e2da441a051d86053339bc484e64e58d8ea263f44"},
-    {file = "pytools-2024.1.10.tar.gz", hash = "sha256:9af6f4b045212c49be32bb31fe19606c478ee4b09631886d05a32459f4ce0a12"},
+    {file = "pytools-2024.1.11-py3-none-any.whl", hash = "sha256:b3f254dcd6986426c21fcd52803a248e837a34b78a8c4abe09724cb60e0901ea"},
+    {file = "pytools-2024.1.11.tar.gz", hash = "sha256:fa966e09857bcd9299f961d58fc128e8333e4ac5fcea52473af5aae88f814e38"},
 ]
 
 [package.dependencies]
 platformdirs = ">=2.2"
-siphash24 = ">=1.6"
 typing-extensions = {version = ">=4", markers = "python_version < \"3.13\""}
 
 [package.extras]
 numpy = ["numpy (>=1.6)"]
+siphash = ["siphash24 (>=1.6)"]
 test = ["mypy", "pytest", "ruff"]
 
 [[package]]
@@ -2188,64 +2188,19 @@ test = ["Cython", "array-api-strict", "asv", "gmpy2", "hypothesis (>=6.30)", "me
 
 [[package]]
 name = "setuptools"
-version = "71.1.0"
+version = "72.1.0"
 description = "Easily download, build, install, upgrade, and uninstall Python packages"
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "setuptools-71.1.0-py3-none-any.whl", hash = "sha256:33874fdc59b3188304b2e7c80d9029097ea31627180896fb549c578ceb8a0855"},
-    {file = "setuptools-71.1.0.tar.gz", hash = "sha256:032d42ee9fb536e33087fb66cac5f840eb9391ed05637b3f2a76a7c8fb477936"},
+    {file = "setuptools-72.1.0-py3-none-any.whl", hash = "sha256:5a03e1860cf56bb6ef48ce186b0e557fdba433237481a9a625176c2831be15d1"},
+    {file = "setuptools-72.1.0.tar.gz", hash = "sha256:8d243eff56d095e5817f796ede6ae32941278f542e0f941867cc05ae52b162ec"},
 ]
 
 [package.extras]
 core = ["importlib-metadata (>=6)", "importlib-resources (>=5.10.2)", "jaraco.text (>=3.7)", "more-itertools (>=8.8)", "ordered-set (>=3.1.1)", "packaging (>=24)", "platformdirs (>=2.6.2)", "tomli (>=2.0.1)", "wheel (>=0.43.0)"]
 doc = ["furo", "jaraco.packaging (>=9.3)", "jaraco.tidelift (>=1.4)", "pygments-github-lexers (==0.0.5)", "pyproject-hooks (!=1.1)", "rst.linker (>=1.9)", "sphinx (>=3.5)", "sphinx-favicon", "sphinx-inline-tabs", "sphinx-lint", "sphinx-notfound-page (>=1,<2)", "sphinx-reredirects", "sphinxcontrib-towncrier"]
 test = ["build[virtualenv] (>=1.0.3)", "filelock (>=3.4.0)", "importlib-metadata", "ini2toml[lite] (>=0.14)", "jaraco.develop (>=7.21)", "jaraco.envs (>=2.2)", "jaraco.path (>=3.2.0)", "jaraco.test", "mypy (==1.11.*)", "packaging (>=23.2)", "pip (>=19.1)", "pyproject-hooks (!=1.1)", "pytest (>=6,!=8.1.*)", "pytest-checkdocs (>=2.4)", "pytest-cov", "pytest-enabler (>=2.2)", "pytest-home (>=0.5)", "pytest-mypy", "pytest-perf", "pytest-ruff (<0.4)", "pytest-ruff (>=0.2.1)", "pytest-ruff (>=0.3.2)", "pytest-subprocess", "pytest-timeout", "pytest-xdist (>=3)", "tomli", "tomli-w (>=1.0.0)", "virtualenv (>=13.0.0)", "wheel"]
-
-[[package]]
-name = "siphash24"
-version = "1.6"
-description = "Streaming-capable SipHash-1-3 and SipHash-2-4 Implementation"
-optional = false
-python-versions = ">=3.7"
-files = [
-    {file = "siphash24-1.6-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:9b1727383cef506cc3ddbf51e551f8b8beaaa12a0ac473535918aa0a810f09b3"},
-    {file = "siphash24-1.6-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:f06def6ae801f6399d711baed6f1da4c1cdfa39a24478d17e4aee15984beb5a0"},
-    {file = "siphash24-1.6-cp310-cp310-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:476418d02298bb1262e66c08ec8e54160de979e3650436857d8757a9191a1207"},
-    {file = "siphash24-1.6-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:14ef5dec9adac38904f92ae79bd3957057825d6c726c132bf2c91fbb4e204172"},
-    {file = "siphash24-1.6-cp310-cp310-win32.whl", hash = "sha256:23ad33fbe64a26f603fc50e093ea84a8572627e5baf659268b37958ca9fff7df"},
-    {file = "siphash24-1.6-cp310-cp310-win_amd64.whl", hash = "sha256:0c18883949f6e9e4d2239883aa9f5da71805f9eba3a41d973dee73667ac896f2"},
-    {file = "siphash24-1.6-cp311-cp311-macosx_10_9_x86_64.whl", hash = "sha256:3e1b3963c392a2d63cbe16af9171d789d2f15e69eb8314b21fe1e11bdc08205f"},
-    {file = "siphash24-1.6-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:de23d12c8a015904081e347900433a0c4b5e07690dbd0a104ad88929f3b91948"},
-    {file = "siphash24-1.6-cp311-cp311-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:8be513de01677e57989e028185a16e531942f7a9578d441481abe8b1085c45d6"},
-    {file = "siphash24-1.6-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:ef89477ce8f2e67fca025ad9b1c85b7498c6959baa7d9a502cbb5d8c7085f5b7"},
-    {file = "siphash24-1.6-cp311-cp311-win32.whl", hash = "sha256:f702e646dc60b7d7915fa37f9357a03a2ec41ffb360b6946baf4801eb9f7e98f"},
-    {file = "siphash24-1.6-cp311-cp311-win_amd64.whl", hash = "sha256:38715f61f0873e4a8b05125e14f349f465c64a1aaf79b6af0ff6f5f420d55dc5"},
-    {file = "siphash24-1.6-cp312-cp312-macosx_10_9_x86_64.whl", hash = "sha256:51eefacbe82f8f48bc603eb97f54bf3819324349b69a9cd131ba02c40b1e6c61"},
-    {file = "siphash24-1.6-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:c63321003aa1856b1bfd48e6ffbd4bff98afeaacb0fc902cb2ae44b861476335"},
-    {file = "siphash24-1.6-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:f0ff4d068e9b0b3f138ef8e8b6f5de1990539d9d590e75a9a8beb6887535184a"},
-    {file = "siphash24-1.6-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:4c1a671d91095e1872ca9988695200064ccca8db60133638d6061755fe669552"},
-    {file = "siphash24-1.6-cp312-cp312-win32.whl", hash = "sha256:2dab672fcda08149b8c15f82ee74d732386428f53239cdb002ac2ad0a1f2f2bc"},
-    {file = "siphash24-1.6-cp312-cp312-win_amd64.whl", hash = "sha256:226af78af3b992c953cc4808f2c6a4bba320e91e6c89b34aa2492064fa417ae8"},
-    {file = "siphash24-1.6-cp37-cp37m-macosx_10_9_x86_64.whl", hash = "sha256:2bceb0a09fb6ff718ef7e6b690515d50238bb929e5cf81f00109a1816e8888c5"},
-    {file = "siphash24-1.6-cp37-cp37m-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:c573f415300db01575cffe9947cd2b68651420aeb810b55b880b8442667bd3e8"},
-    {file = "siphash24-1.6-cp37-cp37m-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:8e8abfb9dbed96bea1cfee82cf0839f61882055109f27726f62c88ed2f995e49"},
-    {file = "siphash24-1.6-cp37-cp37m-win32.whl", hash = "sha256:f8f11d42c316feeb957dff281a12d078423461858ebe66d30691462718da738e"},
-    {file = "siphash24-1.6-cp37-cp37m-win_amd64.whl", hash = "sha256:d93d99b8d85e9216a7d46c5768b1c642806345e28161cd3ee39fffe5b2c50652"},
-    {file = "siphash24-1.6-cp38-cp38-macosx_10_9_x86_64.whl", hash = "sha256:3a28c6936a84b0932ed16f1415933d16c0b04b8a476092c80d82450cc3159291"},
-    {file = "siphash24-1.6-cp38-cp38-macosx_11_0_arm64.whl", hash = "sha256:33ae724f8707f336b667d2d9e2bad8afd4b2c2c00395cb91d1e34e8d8d140069"},
-    {file = "siphash24-1.6-cp38-cp38-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:baddd948fc3e20b880e1fd6c1cff7c305620e35bf63dc5de6440a12783bf259d"},
-    {file = "siphash24-1.6-cp38-cp38-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:aa7b7d53ed19505945bd7429ed429a4396654fd46551b70ece5383bbf5f53fe1"},
-    {file = "siphash24-1.6-cp38-cp38-win32.whl", hash = "sha256:51d314c874543a594f13b6c4f10d8d1b5ed7ce40ec33b1d791ec21ef76593333"},
-    {file = "siphash24-1.6-cp38-cp38-win_amd64.whl", hash = "sha256:90b6f3e5c371fbe0c6abd11303da2c4b857723a5865745b6e24f00aec157d5fc"},
-    {file = "siphash24-1.6-cp39-cp39-macosx_10_9_x86_64.whl", hash = "sha256:8ec34c5b6f2402823543b22a27db4c30668233cf91a416f27deafd37e72e0c77"},
-    {file = "siphash24-1.6-cp39-cp39-macosx_11_0_arm64.whl", hash = "sha256:b31ff190a3134767ed0a15898a4e3c3eba0b4f4cdcb5becd13db57a7b96108af"},
-    {file = "siphash24-1.6-cp39-cp39-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:d9117a4839567573506b105527488b79649f1f658aaaac343a8cc747f6050130"},
-    {file = "siphash24-1.6-cp39-cp39-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:ebf579b9966954ebcc5b0dc2786edd9edc341a7e2949a94e8c87a7456295b506"},
-    {file = "siphash24-1.6-cp39-cp39-win32.whl", hash = "sha256:a062d626696c6c9c25eea8a6edddcdcd83a28852956a0c16aec42a785257dbed"},
-    {file = "siphash24-1.6-cp39-cp39-win_amd64.whl", hash = "sha256:5554f201dd899c599edd4e3648e27014a2a802fc735dec91e5b966daa6739a7a"},
-    {file = "siphash24-1.6.tar.gz", hash = "sha256:242d6901a81260f618938635a25ae7f208e744f7ee6c571f1b255c1c4c62917d"},
-]
 
 [[package]]
 name = "six"
@@ -2313,17 +2268,17 @@ numpy = ["numpy"]
 
 [[package]]
 name = "sphinx"
-version = "7.4.7"
+version = "8.0.2"
 description = "Python documentation generator"
 optional = false
-python-versions = ">=3.9"
+python-versions = ">=3.10"
 files = [
-    {file = "sphinx-7.4.7-py3-none-any.whl", hash = "sha256:c2419e2135d11f1951cd994d6eb18a1835bd8fdd8429f9ca375dc1f3281bd239"},
-    {file = "sphinx-7.4.7.tar.gz", hash = "sha256:242f92a7ea7e6c5b406fdc2615413890ba9f699114a9c09192d7dfead2ee9cfe"},
+    {file = "sphinx-8.0.2-py3-none-any.whl", hash = "sha256:56173572ae6c1b9a38911786e206a110c9749116745873feae4f9ce88e59391d"},
+    {file = "sphinx-8.0.2.tar.gz", hash = "sha256:0cce1ddcc4fd3532cf1dd283bc7d886758362c5c1de6598696579ce96d8ffa5b"},
 ]
 
 [package.dependencies]
-alabaster = ">=0.7.14,<0.8.0"
+alabaster = ">=0.7.14"
 babel = ">=2.13"
 colorama = {version = ">=0.4.6", markers = "sys_platform == \"win32\""}
 docutils = ">=0.20,<0.22"
@@ -2343,54 +2298,54 @@ tomli = {version = ">=2", markers = "python_version < \"3.11\""}
 
 [package.extras]
 docs = ["sphinxcontrib-websupport"]
-lint = ["flake8 (>=6.0)", "importlib-metadata (>=6.0)", "mypy (==1.10.1)", "pytest (>=6.0)", "ruff (==0.5.2)", "sphinx-lint (>=0.9)", "tomli (>=2)", "types-docutils (==0.21.0.20240711)", "types-requests (>=2.30.0)"]
+lint = ["flake8 (>=6.0)", "mypy (==1.11.0)", "pytest (>=6.0)", "ruff (==0.5.5)", "sphinx-lint (>=0.9)", "tomli (>=2)", "types-Pillow (==10.2.0.20240520)", "types-Pygments (==2.18.0.20240506)", "types-colorama (==0.4.15.20240311)", "types-defusedxml (==0.7.0.20240218)", "types-docutils (==0.21.0.20240724)", "types-requests (>=2.30.0)"]
 test = ["cython (>=3.0)", "defusedxml (>=0.7.1)", "pytest (>=8.0)", "setuptools (>=70.0)", "typing_extensions (>=4.9)"]
 
 [[package]]
 name = "sphinxcontrib-applehelp"
-version = "1.0.8"
+version = "2.0.0"
 description = "sphinxcontrib-applehelp is a Sphinx extension which outputs Apple help books"
 optional = false
 python-versions = ">=3.9"
 files = [
-    {file = "sphinxcontrib_applehelp-1.0.8-py3-none-any.whl", hash = "sha256:cb61eb0ec1b61f349e5cc36b2028e9e7ca765be05e49641c97241274753067b4"},
-    {file = "sphinxcontrib_applehelp-1.0.8.tar.gz", hash = "sha256:c40a4f96f3776c4393d933412053962fac2b84f4c99a7982ba42e09576a70619"},
+    {file = "sphinxcontrib_applehelp-2.0.0-py3-none-any.whl", hash = "sha256:4cd3f0ec4ac5dd9c17ec65e9ab272c9b867ea77425228e68ecf08d6b28ddbdb5"},
+    {file = "sphinxcontrib_applehelp-2.0.0.tar.gz", hash = "sha256:2f29ef331735ce958efa4734873f084941970894c6090408b079c61b2e1c06d1"},
 ]
 
 [package.extras]
-lint = ["docutils-stubs", "flake8", "mypy"]
+lint = ["mypy", "ruff (==0.5.5)", "types-docutils"]
 standalone = ["Sphinx (>=5)"]
 test = ["pytest"]
 
 [[package]]
 name = "sphinxcontrib-devhelp"
-version = "1.0.6"
+version = "2.0.0"
 description = "sphinxcontrib-devhelp is a sphinx extension which outputs Devhelp documents"
 optional = false
 python-versions = ">=3.9"
 files = [
-    {file = "sphinxcontrib_devhelp-1.0.6-py3-none-any.whl", hash = "sha256:6485d09629944511c893fa11355bda18b742b83a2b181f9a009f7e500595c90f"},
-    {file = "sphinxcontrib_devhelp-1.0.6.tar.gz", hash = "sha256:9893fd3f90506bc4b97bdb977ceb8fbd823989f4316b28c3841ec128544372d3"},
+    {file = "sphinxcontrib_devhelp-2.0.0-py3-none-any.whl", hash = "sha256:aefb8b83854e4b0998877524d1029fd3e6879210422ee3780459e28a1f03a8a2"},
+    {file = "sphinxcontrib_devhelp-2.0.0.tar.gz", hash = "sha256:411f5d96d445d1d73bb5d52133377b4248ec79db5c793ce7dbe59e074b4dd1ad"},
 ]
 
 [package.extras]
-lint = ["docutils-stubs", "flake8", "mypy"]
+lint = ["mypy", "ruff (==0.5.5)", "types-docutils"]
 standalone = ["Sphinx (>=5)"]
 test = ["pytest"]
 
 [[package]]
 name = "sphinxcontrib-htmlhelp"
-version = "2.0.6"
+version = "2.1.0"
 description = "sphinxcontrib-htmlhelp is a sphinx extension which renders HTML help files"
 optional = false
 python-versions = ">=3.9"
 files = [
-    {file = "sphinxcontrib_htmlhelp-2.0.6-py3-none-any.whl", hash = "sha256:1b9af5a2671a61410a868fce050cab7ca393c218e6205cbc7f590136f207395c"},
-    {file = "sphinxcontrib_htmlhelp-2.0.6.tar.gz", hash = "sha256:c6597da06185f0e3b4dc952777a04200611ef563882e0c244d27a15ee22afa73"},
+    {file = "sphinxcontrib_htmlhelp-2.1.0-py3-none-any.whl", hash = "sha256:166759820b47002d22914d64a075ce08f4c46818e17cfc9470a9786b759b19f8"},
+    {file = "sphinxcontrib_htmlhelp-2.1.0.tar.gz", hash = "sha256:c9e2916ace8aad64cc13a0d233ee22317f2b9025b9cf3295249fa985cc7082e9"},
 ]
 
 [package.extras]
-lint = ["docutils-stubs", "flake8", "mypy"]
+lint = ["mypy", "ruff (==0.5.5)", "types-docutils"]
 standalone = ["Sphinx (>=5)"]
 test = ["html5lib", "pytest"]
 
@@ -2410,33 +2365,33 @@ test = ["flake8", "mypy", "pytest"]
 
 [[package]]
 name = "sphinxcontrib-qthelp"
-version = "1.0.8"
+version = "2.0.0"
 description = "sphinxcontrib-qthelp is a sphinx extension which outputs QtHelp documents"
 optional = false
 python-versions = ">=3.9"
 files = [
-    {file = "sphinxcontrib_qthelp-1.0.8-py3-none-any.whl", hash = "sha256:323d6acc4189af76dfe94edd2a27d458902319b60fcca2aeef3b2180c106a75f"},
-    {file = "sphinxcontrib_qthelp-1.0.8.tar.gz", hash = "sha256:db3f8fa10789c7a8e76d173c23364bdf0ebcd9449969a9e6a3dd31b8b7469f03"},
+    {file = "sphinxcontrib_qthelp-2.0.0-py3-none-any.whl", hash = "sha256:b18a828cdba941ccd6ee8445dbe72ffa3ef8cbe7505d8cd1fa0d42d3f2d5f3eb"},
+    {file = "sphinxcontrib_qthelp-2.0.0.tar.gz", hash = "sha256:4fe7d0ac8fc171045be623aba3e2a8f613f8682731f9153bb2e40ece16b9bbab"},
 ]
 
 [package.extras]
-lint = ["docutils-stubs", "flake8", "mypy"]
+lint = ["mypy", "ruff (==0.5.5)", "types-docutils"]
 standalone = ["Sphinx (>=5)"]
 test = ["defusedxml (>=0.7.1)", "pytest"]
 
 [[package]]
 name = "sphinxcontrib-serializinghtml"
-version = "1.1.10"
+version = "2.0.0"
 description = "sphinxcontrib-serializinghtml is a sphinx extension which outputs \"serialized\" HTML files (json and pickle)"
 optional = false
 python-versions = ">=3.9"
 files = [
-    {file = "sphinxcontrib_serializinghtml-1.1.10-py3-none-any.whl", hash = "sha256:326369b8df80a7d2d8d7f99aa5ac577f51ea51556ed974e7716cfd4fca3f6cb7"},
-    {file = "sphinxcontrib_serializinghtml-1.1.10.tar.gz", hash = "sha256:93f3f5dc458b91b192fe10c397e324f262cf163d79f3282c158e8436a2c4511f"},
+    {file = "sphinxcontrib_serializinghtml-2.0.0-py3-none-any.whl", hash = "sha256:6e2cb0eef194e10c27ec0023bfeb25badbbb5868244cf5bc5bdc04e4464bf331"},
+    {file = "sphinxcontrib_serializinghtml-2.0.0.tar.gz", hash = "sha256:e9d912827f872c029017a53f0ef2180b327c3f7fd23c87229f7a8e8b70031d4d"},
 ]
 
 [package.extras]
-lint = ["docutils-stubs", "flake8", "mypy"]
+lint = ["mypy", "ruff (==0.5.5)", "types-docutils"]
 standalone = ["Sphinx (>=5)"]
 test = ["pytest"]
 

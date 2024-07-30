@@ -6,11 +6,9 @@ from typing import Optional, Tuple
 
 import numpy as np
 import pywt
-from numba import njit, prange, set_num_threads
+from numba import set_num_threads
 
-import adaptivesswt
-
-from . import setBackend
+from . import __backendConfig, __setBackend
 from .utils.freq_utils import (
     calcFilterLength,
     calcScalesAndFreqs,
@@ -21,31 +19,24 @@ from .utils.plot_utils import plot_cwt_filters
 
 logger = logging.getLogger(__name__)
 
-from . import __backendConfig as backendConfig
+backendConfig: dict = __backendConfig
 
-if backendConfig['backend'] == 'opencl':  #type: ignore
-    logger.info('Using "opencl" backend')
-    try:
-        from .sswtcl import _freq_agregate_cl as _freq_agregate
-    except Exception as e:
-        setBackend('numba')
-        logger.error('Could not use "opencl". Switching to "numba".')
+match backendConfig['backend']:
+    case 'opencl':
+        logger.info('Using "opencl" backend')
+        try:
+            from .sswtcl import _freq_agregate_cl, _freq_extract_cl, _time_agregate_cl
+            _freq_agregate, _freq_extract, _time_agregate = _freq_agregate_cl, _freq_extract_cl, _time_agregate_cl
+        except Exception as e:
+            __setBackend('numba')
+            logger.error('Could not use "opencl". Switching to "numba".')
+            logger.error('Exception: %s', e)
 
-if backendConfig['backend'] == 'numba':  #type: ignore
-    logger.info('Using "numba" backend')
-    @njit(parallel=True, fastmath=True)
-    def _freq_agregate_nb(deltaFreqs: np.ndarray, borderFreqs: np.ndarray,
-                       aScale: np.ndarray, wab: np.ndarray, tr_matr: np.ndarray,
-                       sst: np.ndarray):
-        for b in prange(sst.shape[1]):        # Time
-            for w in prange(sst.shape[0]):    # Frequency
-                components = np.logical_and(wab[:,b] > borderFreqs[w],
-                                            wab[:,b] <= borderFreqs[w+1])
+    case _:
+        logger.info('Using "numba" backend')
+        from .sswtnb import _freq_agregate_nb, _freq_extract_nb, _time_agregate_nb
+        _freq_agregate, _freq_extract, _time_agregate = _freq_agregate_nb, _freq_extract_nb, _time_agregate_nb
 
-                sst[w,b] = (tr_matr[components,b] * aScale[components]).sum() / deltaFreqs[w]
-        return sst
-
-    _freq_agregate = _freq_agregate_nb
 
 def sswt(signal: np.ndarray,
          min_freq: float,
@@ -199,7 +190,7 @@ def freq_synchrosqueeze(cwt_matr: np.ndarray, freqs: np.ndarray, ts: float, scal
     set_num_threads(num_processes)
     match transform:
         case 'set':
-            _freq_extract(deltaFreqs, borderFreqs, aScale, wab, cwt_matr, sst)
+            sst = _freq_extract(deltaFreqs, borderFreqs, aScale, wab, cwt_matr, sst)
     ####################################
     # Sychrosqueezing parallel process
     ####################################
@@ -228,7 +219,7 @@ def time_synchrosqueeze(cwt_matr: np.ndarray, freqs: np.ndarray, ts: float,
     ####################################
 
     set_num_threads(num_processes)
-    _time_agregate(ts, time, tab, cwt_matr, tsst)
+    tsst = _time_agregate(time, tab, cwt_matr, tsst)
     logger.info('Time-synchrosqueezing Done!')
 
     return tsst, tab
@@ -253,29 +244,11 @@ def tf_synchrosqueeze(cwt_matr: np.ndarray, freqs: np.ndarray, ts: float,
     ####################################
     set_num_threads(num_processes)
     sst = np.zeros_like(cwt_matr)
-    _freq_agregate(deltaFreqs, borderFreqs, aScale, wab, cwt_matr, sst)
+    sst = _freq_agregate(deltaFreqs, borderFreqs, aScale, wab, cwt_matr, sst)
     tfr = np.zeros_like(cwt_matr)
-    _time_agregate(ts, time, tab, sst, tfr)
+    tfr = _time_agregate(time, tab, sst, tfr)
 
     return tfr, (wab, tab)
-
-@njit(parallel=True, fastmath=True)
-def _freq_extract(deltaFreqs: np.ndarray, borderFreqs: np.ndarray,
-                  aScale: np.ndarray, wab: np.ndarray, tr_matr: np.ndarray,
-                  sst: np.ndarray):
-    for b in prange(sst.shape[1]):        # Time
-        for w in prange(sst.shape[0]):    # Frequency
-            if (wab[w,b] > borderFreqs[w]) and (wab[w,b] <= borderFreqs[w+1]):
-                sst[w,b] = tr_matr[w,b]  #/ deltaFreqs[w]
-
-@njit(parallel=True, fastmath=True)
-def _time_agregate(ts: float, time: np.ndarray, tab: np.ndarray,
-                   tr_matr: np.ndarray, tsst: np.ndarray):
-    for w in prange(tsst.shape[0]):        # Frequency
-        for b in prange(tsst.shape[1]):    # Time
-            components = np.logical_and(tab[w,:] > time[b],
-                                        tab[w,:] <= time[b+1])
-            tsst[w,b] = (tr_matr[w,components]).sum() # / (2*np.pi)
 
 def reconstruct(sst: np.ndarray, c_psi: complex,
                 freqs: np.ndarray)-> np.ndarray:
@@ -317,7 +290,6 @@ def reconstruct_tsst(tsst: np.ndarray, c_psi: complex,
     signalR = (1/c_psi) * (tsst * deltaFreqs[:,np.newaxis]).sum(axis=0)
     return signalR.real
 
-
 def reconstructCWT(cwt: np.ndarray, wav: pywt.ContinuousWavelet, # type: ignore # Pylance seems to fail finding ContinuousWavelet within pywt
                    scales: np.ndarray, freqs: np.ndarray) -> np.ndarray:
     psi_w, x_w = wav.wavefun(wav.upper_bound-wav.lower_bound)
@@ -325,189 +297,3 @@ def reconstructCWT(cwt: np.ndarray, wav: pywt.ContinuousWavelet, # type: ignore 
     signalR = (1/C_w) *  np.sum(cwt / (scales[:, np.newaxis]**0.5)  * np.exp(-1j*freqs/scales)[:,np.newaxis], axis=0)
     # TODO: check scaling factor
     return signalR.real
-
-
-def main():
-    logging.basicConfig(filename='sswt.log', filemode='w',
-                        format='%(levelname)s - %(asctime)s - %(name)s:\n %(message)s')
-    logger = logging.getLogger(__name__)
-    logger.setLevel(logging.DEBUG)
-
-    import matplotlib
-    import matplotlib.pyplot as plt
-
-    font = {'family': 'normal', 'weight': 'normal', 'size': 14}
-    matplotlib.rc('font', **font)
-    plt.rcParams['text.usetex'] = True
-
-    from .configuration import Configuration
-    from .utils import signal_utils as generator
-    from .utils.measures_utils import renyi_entropy
-
-    stopTime = 12
-    fs = 400
-    signalLen = stopTime * fs
-
-    t, step = np.linspace(0, stopTime, signalLen, endpoint=False, retstep=True)
-    ts = float(step)  # type: ignore # np.Floating[Any] to float
-
-    # signal = generator.testSine(t, 0.2) + generator.testSine(t,1) + generator.testSine(t, 5) + generator.testSine(t,10)
-    # f, signal = generator.testSig(t)
-    # f, signal = generator.crossChrips(t, 2, 8, 2)
-    # f, signal = generator.testChirp(t, 3, 6)
-    # _, signal = generator.quadraticChirp(t, 1, 30)
-    f, signal = generator.dualQuadraticChirps(t, (8,5),(2,4))
-    # signal = np.zeros_like(t)
-    # signal[fs:2*fs]=1.0
-
-    wcf = 1
-    wbw = 4
-
-    max_freq = 11
-    min_freq = 0.1
-    num_freqs = 64
-
-    config = Configuration(
-        min_freq=min_freq,
-        max_freq=max_freq,
-        num_freqs=num_freqs,
-        ts=ts,
-        wcf=wcf,
-        wbw=wbw,
-        wavelet_bounds=(-8,8),
-        threshold=signal.max()/(100),
-        plot_filters=False)
-
-    wav = config.wav
-
-    config.pad = 256
-
-    scales, _, _, _ = calcScalesAndFreqs(ts, config.wcf, config.min_freq, config.max_freq, config.num_freqs)
-
-    sst, cwt, freqs, wab, tail = sswt(signal, **config.asdict())
-    rentrCWT = renyi_entropy(cwt,3)
-    rentrSST = renyi_entropy(sst,3)
-    print(f'Rènyi entropy of CWT = {rentrCWT}')
-    print(f'Rènyi entropy of SST = {rentrSST}')
-
-
-    mainFig = plt.figure('Comparación de métodos')
-    gs = mainFig.add_gridspec(1, 3)
-    mainAxes  = gs.subplots(sharex='col', sharey='row')
-    mainFig.set_tight_layout(True)
-
-    #mainAxes[0,0].plot(t[:len(signal)], signal)
-    #mainAxes[0,0].set_title('Señal a analizar')
-
-
-    mainAxes[1].pcolormesh(t, freqs, np.abs(cwt), cmap='viridis', shading='gouraud')
-    mainAxes[1].set_title('Wavelet Transform')
-    mainAxes[1].set_xlabel('t [s]', loc='right')
-    mainAxes[1].set_ylabel('f [Hz]', loc='top')
-    mainAxes[2].pcolormesh(t, freqs, np.abs(sst), cmap='viridis', shading='gouraud')
-    mainAxes[2].set_title('Synchrosqueezing Transform')
-    mainAxes[2].set_xlabel('t [s]', loc='right')
-    mainAxes[2].set_ylabel('f [Hz]', loc='top')
-
-    signalR_cwt = reconstructCWT(cwt, wav, scales, freqs)
-    signalR_cwt /= signalR_cwt.max()
-    signalR_sst = reconstruct(sst, config.c_psi, freqs)
-
-    mainAxes[0].plot(t, f[0], label='Comp. 0')
-    mainAxes[0].plot(t, f[1], label='Comp. 1')
-    mainAxes[0].set_xlabel('t [s]', loc='right')
-    mainAxes[0].set_ylabel('f [Hz]', loc='top')
-    mainAxes[0].legend()
-    mainAxes[0].set_title('Frecuencias intstantáneas')
-
-    #### Transform size comparison ####
-
-    config.num_freqs = 16
-    sst16, _, freqs16, _, _ = sswt(signal, **config.asdict())
-    config.num_freqs = 32
-    sst32, _, freqs32, _, _ = sswt(signal, **config.asdict())
-    config.num_freqs = 64
-    sst64, _, freqs64, _, _ = sswt(signal, **config.asdict())
-    config.num_freqs = 128
-    sst128, _, freqs128, _, _ = sswt(signal, **config.asdict())
-
-    sizeFig = plt.figure('Comparación de K')
-    gsSize = sizeFig.add_gridspec(2, 2)
-    sizeAxes  = gsSize.subplots(sharex='col', sharey='row')
-    sizeFig.set_tight_layout(True)
-
-    sizeAxes[0, 0].pcolormesh(t, freqs16, np.abs(sst16), cmap='viridis', shading='gouraud')
-    sizeAxes[0, 0].set_title('K = 16')
-    sizeAxes[0, 0].set_xlabel('t [s]', loc='right')
-    sizeAxes[0, 0].set_ylabel('f [Hz]', loc='top')
-
-    sizeAxes[0, 1].pcolormesh(t, freqs32, np.abs(sst32), cmap='viridis', shading='gouraud')
-    sizeAxes[0, 1].set_title('K = 32')
-    sizeAxes[0, 1].set_xlabel('t [s]', loc='right')
-    sizeAxes[0, 1].set_ylabel('f [Hz]', loc='top')
-
-    sizeAxes[1, 0].pcolormesh(t, freqs64, np.abs(sst64), cmap='viridis', shading='gouraud')
-    sizeAxes[1, 0].set_title('K = 64')
-    sizeAxes[1, 0].set_xlabel('t [s]', loc='right')
-    sizeAxes[1, 0].set_ylabel('f [Hz]', loc='top')
-
-    sizeAxes[1, 1].pcolormesh(t, freqs128, np.abs(sst128), cmap='viridis', shading='gouraud')
-    sizeAxes[1, 1].set_title('K = 128')
-    sizeAxes[1, 1].set_xlabel('t [s]', loc='right')
-    sizeAxes[1, 1].set_ylabel('f [Hz]', loc='top')
-
-    rentrSST16 = renyi_entropy(sst16,3)
-    rentrSST32 = renyi_entropy(sst32,3)
-    rentrSST64 = renyi_entropy(sst64,3)
-    rentrSST128 = renyi_entropy(sst128,3)
-
-    print(f'Rènyi entropy of SST with K=16 : {rentrSST16}')
-    print(f'Rènyi entropy of SST with K=32 : {rentrSST32}')
-    print(f'Rènyi entropy of SST with K=64 : {rentrSST64}')
-    print(f'Rènyi entropy of SST with K=128 : {rentrSST128}')
-
-
-    #### Transforms comparison ####
-    tsstFig, tsstAx = plt.subplots(1,5)
-
-    # signal = np.zeros_like(t)
-    # pulse_width = 10
-    # pulse_start, pulse_stop = int(len(t)//5), int(len(t)//5) + pulse_width
-    # signal[pulse_start:pulse_stop]=1
-
-    sst, cwt, freqs, tab, tail = sswt(signal, **config.asdict())
-    tsstAx[0].pcolormesh(t, freqs, np.abs(cwt[:-1,:-1]), cmap='viridis', shading='flat') #'gouraud')
-    tsstAx[0].set_title('Wavelet Transform')
-    tsstAx[1].pcolormesh(t, freqs, np.abs(sst[:-1,:-1]), cmap='viridis', shading='flat') #'gouraud')
-    tsstAx[1].set_title('Synchrosqueezing Transform')
-
-    config.transform = 'tsst'
-    tsst, cwt, freqs, tab, tail = sswt(signal, **config.asdict())
-    tsstAx[2].pcolormesh(t, freqs, np.abs(tsst[:-1,:-1]), cmap='viridis', shading='flat') #'gouraud')
-    tsstAx[2].set_title('Time synchrosqueezing Transform')
-
-    config.transform = 'tfr'
-    tfr, cwt, freqs, tab, tail = sswt(signal, **config.asdict())
-    tsstAx[3].pcolormesh(t, freqs, np.abs(tfr)[:-1,:-1], cmap='viridis', shading='flat') #'gouraud')
-    tsstAx[3].set_title('Time Frequency Reasignment')
-
-    config.transform = 'set'
-    tfr, cwt, freqs, tab, tail = sswt(signal, **config.asdict())
-    tsstAx[4].pcolormesh(t, freqs, np.abs(tfr)[:-1,:-1], cmap='viridis', shading='flat') #'gouraud')
-    tsstAx[4].set_title('Synchro-Extracting Transform')
-
-    print(f'Max values: CWT={abs(cwt).max()}, SST={abs(sst).max()}, TSST={abs(tsst).max()}, TFR={abs(tfr).max()}\n')
-
-    #### Timing ####
-    import timeit
-    passes = 10
-    config.pad = 0
-    time = timeit.timeit("lambda: sswt(signal, **config.asdict())", globals=globals(), number=passes)
-    print(f'Excecution time for {passes} passes and {adaptivesswt.getBackend()} = {time}s')
-    print(f'Execution time per signal second = {time / stopTime / passes} s/s')
-
-    plt.show()
-
-
-if __name__=='__main__':
-    main()
