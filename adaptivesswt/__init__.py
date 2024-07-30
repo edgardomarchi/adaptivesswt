@@ -25,7 +25,7 @@ except json.JSONDecodeError as e:
     logger.warning('No valid json format! - Exception: %s', e)
 except IOError:
     __backendConfig = __defaultBackendConfig
-    logger.warning('No registered plugins list found!')
+    logger.warning('No backend found!')
 
 logger.info('Using %s backend with device_id %d',
             __backendConfig['backend'], __backendConfig['device_id'])
