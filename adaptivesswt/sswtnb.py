@@ -2,7 +2,8 @@ import numpy as np
 from numba import njit, prange
 
 
-@njit(parallel=True, fastmath=True)
+@njit('float64[:], float64[:], float64[:], float64[:,:], complex128[:,:], complex128[:,:]',
+      cache=True, parallel=True, fastmath=True)
 def _freq_agregate_nb(deltaFreqs: np.ndarray, borderFreqs: np.ndarray,
                       aScale: np.ndarray, wab: np.ndarray, tr_matr: np.ndarray,
                       sst: np.ndarray):
@@ -13,7 +14,8 @@ def _freq_agregate_nb(deltaFreqs: np.ndarray, borderFreqs: np.ndarray,
             sst[w,b] = (tr_matr[components,b] * aScale[components]).sum() / deltaFreqs[w]
     return sst
 
-@njit(parallel=True, fastmath=True)
+@njit('float64[:], float64[:], float64[:], float64[:,:], complex128[:,:], complex128[:,:]',
+      cache=True, parallel=True, fastmath=True)
 def _freq_extract_nb(deltaFreqs: np.ndarray, borderFreqs: np.ndarray,
                      aScale: np.ndarray, wab: np.ndarray, tr_matr: np.ndarray,
                      set: np.ndarray)-> np.ndarray:
@@ -23,7 +25,8 @@ def _freq_extract_nb(deltaFreqs: np.ndarray, borderFreqs: np.ndarray,
                 set[w,b] = tr_matr[w,b]  #/ deltaFreqs[w]
     return set
 
-@njit(parallel=True, fastmath=True)
+@njit('float64[:], float64[:,:], complex128[:,:], complex128[:,:]',
+      cache=True, parallel=True, fastmath=True)
 def _time_agregate_nb(time: np.ndarray, tab: np.ndarray,
                       tr_matr: np.ndarray, tsst: np.ndarray)-> np.ndarray:
     for w in prange(tsst.shape[0]):        # Frequency

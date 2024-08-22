@@ -6,7 +6,6 @@ from typing import Optional, Tuple
 
 import numpy as np
 import pywt
-from numba import set_num_threads
 
 from . import __backendConfig, __setBackend
 from .utils.freq_utils import (
@@ -34,6 +33,8 @@ match backendConfig['backend']:
 
     case _:
         logger.info('Using "numba" backend')
+        from numba import set_num_threads
+
         from .sswtnb import _freq_agregate_nb, _freq_extract_nb, _time_agregate_nb
         _freq_agregate, _freq_extract, _time_agregate = _freq_agregate_nb, _freq_extract_nb, _time_agregate_nb
 
@@ -113,6 +114,7 @@ def sswt(signal: np.ndarray,
     #### CWT ####
     if plot_filters: plot_cwt_filters(wav, scales, ts, signal)
     cwt, freqs = pywt.cwt(signal, scales, wav, sampling_period=ts, method='fft')
+    if backendConfig['backend'] == 'numba': set_num_threads(num_processes)  # type: ignore  # set_num_threads is imported only if numba is used
 
     #### Transforms ####
     match kwargs.get('transform', 'sst'):
@@ -186,8 +188,6 @@ def freq_synchrosqueeze(cwt_matr: np.ndarray, freqs: np.ndarray, ts: float, scal
     wab = get_freq_remapping(cwt_matr, threshold, ts)
 
     sst = np.zeros_like(cwt_matr)
-
-    set_num_threads(num_processes)
     match transform:
         case 'set':
             sst = _freq_extract(deltaFreqs, borderFreqs, aScale, wab, cwt_matr, sst)
@@ -218,7 +218,6 @@ def time_synchrosqueeze(cwt_matr: np.ndarray, freqs: np.ndarray, ts: float,
     # Sychrosqueezing parallel process
     ####################################
 
-    set_num_threads(num_processes)
     tsst = _time_agregate(time, tab, cwt_matr, tsst)
     logger.info('Time-synchrosqueezing Done!')
 
@@ -242,7 +241,6 @@ def tf_synchrosqueeze(cwt_matr: np.ndarray, freqs: np.ndarray, ts: float,
     ####################################
     # Sychrosqueezing parallel process
     ####################################
-    set_num_threads(num_processes)
     sst = np.zeros_like(cwt_matr)
     sst = _freq_agregate(deltaFreqs, borderFreqs, aScale, wab, cwt_matr, sst)
     tfr = np.zeros_like(cwt_matr)

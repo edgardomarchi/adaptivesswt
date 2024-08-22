@@ -1,1 +1,1 @@
-{"backend": "opencl", "device_id": 0}
+{"backend": "numba", "device_id": 0}

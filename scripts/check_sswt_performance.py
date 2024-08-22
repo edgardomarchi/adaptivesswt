@@ -42,8 +42,8 @@ def test_complexity(stopSignalTime: float = 20) -> np.ndarray:
             timeit.timeit(sswt_fix, number=passes) / passes / stopTime / fs
         )
         print(f'Number of processes : {i}')
-        print(f'Average timing normalized over signal length = {timingsProc[i-1]} s/S')
-        print(f'Maximum fs for true-real time {1/timingsProc[i-1]}')
+        print(f'Average timing normalized over signal length = {timingsProc[i-1]:.4E} s/S')
+        print(f'Maximum fs for true-real time {1/timingsProc[i-1]:.4E}')
 
     return timingsProc
 
@@ -83,7 +83,7 @@ def ckeck_complexity_distribution(
         signalLen = int(stopTime * fs)
         t, ts = np.linspace(0, stopTime, signalLen, endpoint=False, retstep=True)
 
-        _, signal = generator.quadraticChirp(t, 3, 7)
+        _, signal = generator.tritone(t, 3,4,7)  #quadraticChirp(t, 3, 7)
 
         sswt_fix = lambda: sswt(signal, **config.asdict())
         sst_times[i] = timeit.timeit(sswt_fix, number=passes) / passes
@@ -95,10 +95,8 @@ def ckeck_complexity_distribution(
 
         print(f'INFO: Pass {i+1}/{n_steps}')
 
-    # Adaptive stage runs maxIters times, menwhile sst runs maxIters+1 times
-    # (e.g. maxIters = 0 runs the non-adaptive algorithm, i.e. sst only):
-    a_times = asst_times / maxIters - sst_times * (maxIters + 1) / maxIters
-    a_times[0] = asst_times[0] / maxIters - sst_times[0] / maxIters
+    # Adaptive stage runs maxIters times, meanwhile sst runs maxIters+1 times
+    a_times = (asst_times - sst_times * (maxIters + 1)) / maxIters
 
     return maxSignalTimes, a_times, sst_times, asst_times
 
@@ -127,34 +125,34 @@ def main():
             print('--------------------', end='\n')
 
         plt.figure('Normalized time vs number of processes')
-        plt.gca().set_xlabel('processes')
-        plt.gca().set_ylabel('s/S', loc='top')
+        plt.gca().set_xlabel(r'\# proc.')
+        plt.gca().set_ylabel(r'$fs_{MAX} [Hz]$', loc='top')
         for i in range(numLengths):
             plt.plot(
                 np.arange(cpu_count()) + 1,
-                timings[i],
-                label=f'{signalLengths[i]} s signal',
+                1/timings[i],
+                label=r'$t_{MAX}=$'+f'{signalLengths[i]}s',
             )
         plt.legend()
 
     else:
         s_len, a_times, sst_times, asst_times = ckeck_complexity_distribution(
-            maxSignalTime=120,
-            n_steps=20,
+            maxSignalTime=80,
+            n_steps=8,
             maxIters=2
         )
         fig, ax = plt.subplots(1)
         ax.plot(s_len, a_times, 'b', label='Single Adaptive stage')
-        ax.plot(s_len, sst_times, 'b:', label='Single SST')
+        ax.plot(s_len, 3*sst_times, 'b:', label='Single SST')
         ax.plot(s_len, asst_times, 'b--', label='Full ASST')
 
         s_len, a_times, sst_times, asst_times = ckeck_complexity_distribution(
-            maxSignalTime=120,
-            n_steps=20,
+            maxSignalTime=80,
+            n_steps=8,
             maxIters=4
         )
         ax.plot(s_len, a_times, 'r', label='Single Adaptive stage')
-        ax.plot(s_len, sst_times, 'r:', label='Single SST')
+        ax.plot(s_len, 5*sst_times, 'r:', label='Single SST')
         ax.plot(s_len, asst_times, 'r--', label='Full ASST')
 
         ax.set_xlabel('Signal duration [s]')
