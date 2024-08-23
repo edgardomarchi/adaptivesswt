@@ -83,8 +83,8 @@ def ckeck_complexity_distribution(
         signalLen = int(stopTime * fs)
         t, ts = np.linspace(0, stopTime, signalLen, endpoint=False, retstep=True)
 
-        _, signal = generator.tritone(t, 3,4,7)  #quadraticChirp(t, 3, 7)
-
+        #_, signal = generator.tritone(t, 3, 4, 7)
+        _, signal = generator.quadraticChirp(t, 3, 7)
         sswt_fix = lambda: sswt(signal, **config.asdict())
         sst_times[i] = timeit.timeit(sswt_fix, number=passes) / passes
 
@@ -96,7 +96,10 @@ def ckeck_complexity_distribution(
         print(f'INFO: Pass {i+1}/{n_steps}')
 
     # Adaptive stage runs maxIters times, meanwhile sst runs maxIters+1 times
-    a_times = (asst_times - sst_times * (maxIters + 1)) / maxIters
+    if maxIters == 0:
+        a_times = asst_times - sst_times  # It should be zero, but runtimes are not exact
+    else:
+        a_times = (asst_times - sst_times * (maxIters + 1)) / maxIters
 
     return maxSignalTimes, a_times, sst_times, asst_times
 
@@ -124,9 +127,11 @@ def main():
             timings.append(test_complexity(len))
             print('--------------------', end='\n')
 
-        plt.figure('Normalized time vs number of processes')
-        plt.gca().set_xlabel(r'\# proc.')
-        plt.gca().set_ylabel(r'$fs_{MAX} [Hz]$', loc='top')
+        fig, ax = plt.subplots(1, figsize=(10/2,10/2))
+        # fig.suptitle('Max sampling frequency vs number of processes')
+        fig.set_tight_layout(True)
+        ax.set_xlabel(r'\# proc.')
+        ax.set_ylabel(r'$fs_{MAX}\,[Hz]$', loc='top')
         for i in range(numLengths):
             plt.plot(
                 np.arange(cpu_count()) + 1,
@@ -136,26 +141,24 @@ def main():
         plt.legend()
 
     else:
-        s_len, a_times, sst_times, asst_times = ckeck_complexity_distribution(
-            maxSignalTime=80,
-            n_steps=8,
-            maxIters=2
-        )
-        fig, ax = plt.subplots(1)
-        ax.plot(s_len, a_times, 'b', label='Single Adaptive stage')
-        ax.plot(s_len, 3*sst_times, 'b:', label='Single SST')
-        ax.plot(s_len, asst_times, 'b--', label='Full ASST')
+        fig, ax = plt.subplots(1, figsize=(16/2,9/2))
+        fig.set_tight_layout(True)
+        maxSignalTime = 80
+        steps=3
+        colors = ['b', 'r', 'g', 'c', 'm', 'y', 'k']
+        for i, maxiters in enumerate([0, 1, 2, 4, 6]):
+            print(f'\nPerforming test for maxIters={maxiters}:')
+            s_len, a_times, sst_times, asst_times = ckeck_complexity_distribution(
+                maxSignalTime=maxSignalTime,
+                n_steps=steps,
+                maxIters=maxiters
+            )
+            ax.plot(s_len, (maxiters + 1)*sst_times, f'{colors[i]}--', label='SST' r'$\times$' f'[(Iter.={maxiters})+1]')
+            ax.plot(s_len, asst_times, colors[i], label=f'ASST (Iter.={maxiters})')
 
-        s_len, a_times, sst_times, asst_times = ckeck_complexity_distribution(
-            maxSignalTime=80,
-            n_steps=8,
-            maxIters=4
-        )
-        ax.plot(s_len, a_times, 'r', label='Single Adaptive stage')
-        ax.plot(s_len, 5*sst_times, 'r:', label='Single SST')
-        ax.plot(s_len, asst_times, 'r--', label='Full ASST')
+        #ax.plot(s_len, a_times, 'b', label='Single Adaptive stage')
 
-        ax.set_xlabel('Signal duration [s]')
+        ax.set_xlabel(r'$t_{MAX}\,[s]$')
         ax.set_ylabel('Run-time [s]')
         ax.set_title(f'Backend: {adaptivesswt.getBackend()}')
 
