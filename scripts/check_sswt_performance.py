@@ -4,6 +4,7 @@ from multiprocessing import cpu_count
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
+import pywt
 
 import adaptivesswt
 from adaptivesswt import adaptive_sswt
@@ -11,6 +12,32 @@ from adaptivesswt.configuration import Configuration
 from adaptivesswt.sswt import sswt
 from adaptivesswt.utils import signal_utils as generator
 
+
+def test_cwt(maxSignalTime: float = 20, n_steps:int = 10) -> tuple[np.ndarray, np.ndarray]:
+    fs = 2000
+    maxSignalTimes = np.linspace(
+        maxSignalTime / n_steps, maxSignalTime, n_steps, endpoint=True
+    )
+    cwt_times = np.zeros_like(maxSignalTimes)
+    scales = np.linspace(10, fs, 32)
+    wav = 'cmor1-1.5'
+
+    passes = 10
+
+    for i, stopSignalTime in enumerate(maxSignalTimes):
+        stopTime = stopSignalTime
+        fs = 2000
+        signalLen = int(stopTime * fs)
+        t, ts = np.linspace(0, stopTime, signalLen, endpoint=False, retstep=True)
+
+        #_, signal = generator.tritone(t, 3, 4, 7)
+        _, signal = generator.quadraticChirp(t, 3, 7)
+        cwt_fix = lambda: pywt.cwt(signal, scales, wav, sampling_period=1/ts, method='fft')
+        cwt_times[i] = timeit.timeit(cwt_fix, number=passes) / passes
+
+        print(f'INFO: Pass {i+1}/{n_steps}')
+
+    return maxSignalTimes, cwt_times
 
 def test_complexity(stopSignalTime: float = 20) -> np.ndarray:
     stopTime = stopSignalTime
@@ -114,7 +141,7 @@ def main():
     # import matplotlib
     # matplotlib.use('Qt5Agg')
 
-    print("Press 'p' for paralellism test, any other key for timing distribution")
+    print("Press 'p' for paralellism test, 'c' for CWT timing, any other key for timing for different 'maxIters'")
     sel = input()
 
     if sel == 'p':
@@ -140,11 +167,31 @@ def main():
             )
         plt.legend()
 
+    elif sel == 'c':
+        fig, ax = plt.subplots(1, figsize=(16/2,9/2))
+        fig.set_tight_layout(True)
+        maxSignalTime = 400
+        steps=10
+        s_len, cwt_times = test_cwt(maxSignalTime=maxSignalTime, n_steps=steps)
+        ax.plot(s_len, cwt_times, label=f'CWT')
+
+        s_len, _, sst_times, asst_times = ckeck_complexity_distribution(
+                maxSignalTime=maxSignalTime,
+                n_steps=steps,
+                maxIters=0
+            )
+        ax.plot(s_len, sst_times, label='SST')
+        ax.set_xlabel(r'$t_{MAX}\,[s]$')
+        ax.set_ylabel('Run-time [s]')
+        ax.set_title(f'Backend: {adaptivesswt.getBackend()}')
+
+        ax.legend()
+
     else:
         fig, ax = plt.subplots(1, figsize=(16/2,9/2))
         fig.set_tight_layout(True)
-        maxSignalTime = 80
-        steps=3
+        maxSignalTime = 400
+        steps=10
         colors = ['b', 'r', 'g', 'c', 'm', 'y', 'k']
         for i, maxiters in enumerate([0, 1, 2, 4, 6]):
             print(f'\nPerforming test for maxIters={maxiters}:')
