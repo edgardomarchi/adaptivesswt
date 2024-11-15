@@ -254,10 +254,10 @@ if input() == 'WB':
 
 #%% Compare methods
 
-K=24
+K=256
 
 fs = 256
-stopTime = 16
+stopTime = 1 #16
 
 test_config = Configuration(
     min_freq = 1,
@@ -265,7 +265,7 @@ test_config = Configuration(
     num_freqs= K,
     ts=1/fs,
     wcf=1,
-    wbw=14,
+    wbw=2,
     wavelet_bounds=(-8,8),
     transform='sst'
     )
@@ -277,8 +277,8 @@ itl = True
 t, step = np.linspace(0, stopTime, int(fs*stopTime), endpoint=False, retstep=True)
 ts = float(step)
 
-# f, signal = generator.matlab_comparison_signals(t, ts)
-f, signal = generator.dualQuadraticChirps(t, (28, 30), (42, 38))
+f, signal = generator.matlab_comparison_signals(t, ts)
+#f, signal = generator.dualQuadraticChirps(t, (28, 30), (42, 38))
 
 import time as clock
 

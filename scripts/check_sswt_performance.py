@@ -7,7 +7,7 @@ import numpy as np
 import pywt
 
 import adaptivesswt
-from adaptivesswt import adaptive_sswt
+from adaptivesswt import adaptive_sswt, getBackend
 from adaptivesswt.configuration import Configuration
 from adaptivesswt.sswt import sswt
 from adaptivesswt.utils import signal_utils as generator
@@ -134,7 +134,7 @@ def ckeck_complexity_distribution(
 def main():
 
     plt.rcParams['text.usetex'] = True
-    font = {'family': 'normal', 'weight': 'normal', 'size': 10}
+    font = {'family': 'normal', 'weight': 'normal', 'size': 12}
     matplotlib.rc('font', **font)
 
     # Uncomment if you have pyqt installed:
@@ -156,7 +156,7 @@ def main():
 
         fig, ax = plt.subplots(1, figsize=(10/2,10/2))
         # fig.suptitle('Max sampling frequency vs number of processes')
-        fig.set_tight_layout(True)
+        fig.tight_layout()
         ax.set_xlabel(r'\# proc.')
         ax.set_ylabel(r'$fs_{MAX}\,[Hz]$', loc='top')
         for i in range(numLengths):
@@ -169,7 +169,7 @@ def main():
 
     elif sel == 'c':
         fig, ax = plt.subplots(1, figsize=(16/2,9/2))
-        fig.set_tight_layout(True)
+        fig.tight_layout()
         maxSignalTime = 400
         steps=10
         s_len, cwt_times = test_cwt(maxSignalTime=maxSignalTime, n_steps=steps)
@@ -187,9 +187,13 @@ def main():
 
         ax.legend()
 
+        np.save(f'cwt_times_{getBackend()}.npy', cwt_times)
+        np.save(f'sst_times_{getBackend()}.npy', sst_times)
+        np.save(f'slength_{maxSignalTime}.npy', s_len)
+
     else:
         fig, ax = plt.subplots(1, figsize=(16/2,9/2))
-        fig.set_tight_layout(True)
+        fig.tight_layout()
         maxSignalTime = 400
         steps=10
         colors = ['b', 'r', 'g', 'c', 'm', 'y', 'k']

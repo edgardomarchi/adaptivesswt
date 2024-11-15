@@ -148,13 +148,13 @@ freq_extract_knl = _freq_extract_prg.extract  # Use this Kernel object for repea
 
 def _freq_extract_cl(deltaFreqs: np.ndarray, borderFreqs: np.ndarray,
                      aScale: np.ndarray, wab: np.ndarray, tr_matr: np.ndarray,
-                     set: np.ndarray) -> np.ndarray:
+                     set_tr: np.ndarray) -> np.ndarray:
     deltaFreqs_dev = cl_array.to_device(queue, deltaFreqs)
     borderFreqs_dev = cl_array.to_device(queue, borderFreqs)
     aScale_dev = cl_array.to_device(queue, aScale)
     wab_dev = cl_array.to_device(queue, wab)
     tr_matr_dev = cl_array.to_device(queue, tr_matr)
-    set_dev = cl_array.to_device(queue, set)
+    set_dev = cl_array.to_device(queue, set_tr)
 
     width_dev = cl.Buffer(
         ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=np.int32(set_dev.shape[1])  # type: ignore  # since shape is a tuple
@@ -162,7 +162,7 @@ def _freq_extract_cl(deltaFreqs: np.ndarray, borderFreqs: np.ndarray,
     height_dev = cl.Buffer(
         ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=np.int32(set_dev.shape[0])  # type: ignore  # since shape is a tuple
         )
-    freq_extract_knl(queue, set.shape, None, deltaFreqs_dev.data, borderFreqs_dev.data,
+    freq_extract_knl(queue, set_tr.shape, None, deltaFreqs_dev.data, borderFreqs_dev.data,
         aScale_dev.data, wab_dev.data, tr_matr_dev.data, set_dev.data,
         width_dev, height_dev)
 
@@ -172,7 +172,7 @@ def _freq_extract_cl(deltaFreqs: np.ndarray, borderFreqs: np.ndarray,
 
 
 ###########################
-# TIme aggregation kernel #
+# Time aggregation kernel #
 ###########################
 try:
     _time_agregate_prg.build()
