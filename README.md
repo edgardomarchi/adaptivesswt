@@ -9,7 +9,7 @@ real world applications.
 It relies on the [```PyWavelets```](https://github.com/PyWavelets/pywt) package.
 
 ## Requirements
-```python = ">=3.7,<3.11"```
+```python = ">=3.10,<3.13"```
 
 Package dependencies will be automatically installed by ```pip```.
 
@@ -17,7 +17,7 @@ Package dependencies will be automatically installed by ```pip```.
 For now:
 
 ```
-$ pip install git+https://github.com/edgardomarchi/adaptivesswt.git#egg=adaptivesswt
+$ pip install git+https://github.com/edgardomarchi/adaptivesswt.git
 ```
 
 ## Usage

@@ -1,4 +1,4 @@
-[tool.poetry]
+[project]
 
 name = "adaptivesswt"
 version = "0.3.1"
@@ -6,35 +6,58 @@ description = "A package to calculate an Adaptive Synchrosqueezing Transform"
 
 license = "MIT"
 
-authors = ["Edgardo Marchi <emarchi@inti.gob.ar>"]
+authors = [
+    {name="Edgardo Marchi", email="edgardo.marchi@gmail.com"}
+]
 
 readme = "README.md"
-
-homepage = "https://github.com/edgardomarchi/adaptivesswt"
-repository = "https://github.com/edgardomarchi/adaptivesswt"
 
 keywords = ["Synchrosqueezing", "Wavelet", "Transform", "DSP"
 ]
 
-[tool.poetry.dependencies]
+classifiers = [
+    # TODO: update this list to match your application: https://pypi.org/pypi?%3Aaction=list_classifiers
+    "Development Status :: 1 - Planning",
+    "Natural Language :: English",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+]
 
-python = "^3.10"
-pywavelets = "^1.2"
-numpy = "^1"
-numba = ">=0.57"
-click = "*"
-scipy = "*"
-matplotlib = { version = "*", optional = true }
-pandas = { version = "*", optional = true }
-SoundFile = { version = "^0.10.3.post1", optional = true }
-pyopencl = "^2024.1"
+requires-python = ">=3.10,<3.13"
 
-[tool.poetry.extras]
-plot = ["matplotlib"]
-audio = ["SoundFile"]
-tests = ["matplotlib", "pandas"]
+dependencies = [
+    "pywavelets",
+    "numpy",
+    "numba",
+    "click",
+    "scipy",
+    "pyopencl",
+]
 
-[tool.poetry.dev-dependencies]
+[project.urls]
+homepage = "https://github.com/edgardomarchi/adaptivesswt"
+repository = "https://github.com/edgardomarchi/adaptivesswt"
+
+[tool.poetry.group.plot]
+optional = true
+
+[tool.poetry.group.plot.dependencies]
+matplotlib = "*"
+
+[tool.poetry.group.pandas]
+optional = true
+[tool.poetry.group.pandas.dependencies]
+pandas = "*"
+
+[tool.poetry.group.SoundFile]
+optional = true
+[tool.poetry.group.SoundFile.dependencies]
+SoundFile = "*"
+
+
+[tool.poetry.group.dev.dependencies]
 
 # Formatters
 isort = "^5"   # A Python utility / library to sort imports
