@@ -33,16 +33,19 @@ dependencies = [
     "numba",
     "click",
     "scipy",
-    "pyopencl",
 ]
 
 [project.urls]
 homepage = "https://github.com/edgardomarchi/adaptivesswt"
 repository = "https://github.com/edgardomarchi/adaptivesswt"
 
+[project.optional-dependencies]
+plot = ["matplotlib"]
+pandas = ["pandas"]
+opencl = ["pyopencl"]
+
 [tool.poetry.group.plot]
 optional = true
-
 [tool.poetry.group.plot.dependencies]
 matplotlib = "*"
 
@@ -50,6 +53,11 @@ matplotlib = "*"
 optional = true
 [tool.poetry.group.pandas.dependencies]
 pandas = "*"
+
+[tool.poetry.group.opencl]
+optional = true
+[tool.poetry.group.opencl.dependencies]
+pyopencl = "*"
 
 [tool.poetry.group.SoundFile]
 optional = true
