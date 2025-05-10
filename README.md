@@ -17,8 +17,10 @@ Package dependencies will be automatically installed by ```pip```.
 For now:
 
 ```
-$ pip install git+https://github.com/edgardomarchi/adaptivesswt.git
+$ pip install "adaptivesswt[plot,opencl] @ git+https://github.com/edgardomarchi/adaptivesswt.git@opencl"
 ```
+
+The above example will install the package with OpenCL backend, `matplotib` (specified in the `plot` extra) from the `opencl` development branch.
 
 ## Usage
 After importing the module it is recommended to create a configuration object to simplify passing parameters, for example:
